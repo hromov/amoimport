@@ -16,7 +16,7 @@ import (
 var leadFields map[string]int
 
 func leadField(record []string, name string) string {
-	return record[contactFields[name]]
+	return record[leadFields[name]]
 }
 
 func Get_Contact_ID(record []string) *uint64 {
