@@ -13,13 +13,6 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-var sMap = map[string]uint8{}
-var uMap = map[string]uint64{}
-var pMap = map[string]uint32{}
-var mMap = map[string]uint16{}
-var stepsMap = map[string]uint8{}
-var tagsMap = map[string]uint8{}
-
 func (is *ImportService) Push_Misc(path string, n int) error {
 	f, err := os.Open(path)
 	if err != nil {
@@ -145,7 +138,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 	}
 
 	for _, source := range sources {
-		sMap[source.Name] = source.ID
+		sourcesMap[source.Name] = source.ID
 	}
 	var users []*models.User
 	if err := is.DB.Find(&users).Error; err != nil {
@@ -155,7 +148,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 		log.Println("No users were found")
 	}
 	for _, user := range users {
-		uMap[user.Name] = user.ID
+		usersMap[user.Name] = user.ID
 	}
 
 	var products []*models.Product
@@ -166,7 +159,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 		log.Println("No products were found")
 	}
 	for _, item := range products {
-		pMap[item.Name] = item.ID
+		productsMap[item.Name] = item.ID
 	}
 
 	var manufs []*models.Manufacturer
@@ -177,7 +170,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 		log.Println("No manufs were found")
 	}
 	for _, item := range manufs {
-		mMap[item.Name] = item.ID
+		manufacturersMap[item.Name] = item.ID
 	}
 
 	var steps []*models.Step

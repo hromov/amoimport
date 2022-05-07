@@ -23,13 +23,13 @@ func Get_Contact_ID(record []string) *uint64 {
 	//notices 1-5, fullname, contact responsible, records[21:30], records[30:44]
 	str := leadField(record, "Полное имя контакта") + leadField(record, "Ответственный за контакт") + strings.Join(record[leadFields["Рабочий телефон"]:leadFields["utm_source"]], ",")
 	// log.Println(str)
-	hashed := hashIt(str)
-	if _, exist := contactsMap[hashed]; !exist {
+	hashed := getHash(str)
+	if _, exist := contactsourcesMap[hashed]; !exist {
 		//TODO: put them in separate file and not into the base
 		// log.Println("WTF!!!!!!! can'f find contact for lead = ", str)
 		return nil
 	}
-	r := contactsMap[hashed]
+	r := contactsourcesMap[hashed]
 	return &r
 }
 
@@ -81,12 +81,12 @@ func (is *ImportService) Push_Leads(path string, n int) error {
 
 		if lead := recordToLead(record); lead != nil {
 
-			responsible := uMap[leadField(record, "Ответственный")]
-			created := uMap[leadField(record, "Кем создана сделка")]
-			source := sMap[leadField(record, "Источник")]
+			responsible := usersMap[leadField(record, "Ответственный")]
+			created := usersMap[leadField(record, "Кем создана сделка")]
+			source := sourcesMap[leadField(record, "Источник")]
 
-			prod := pMap[leadField(record, "Товар")]
-			manuf := mMap[leadField(record, "Производитель")]
+			prod := productsMap[leadField(record, "Товар")]
+			manuf := manufacturersMap[leadField(record, "Производитель")]
 			step := stepsMap[leadField(record, "Этап сделки")]
 			if responsible != 0 {
 				lead.ResponsibleID = &responsible

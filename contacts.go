@@ -1,7 +1,6 @@
 package amoimport
 
 import (
-	"crypto/sha1"
 	"encoding/csv"
 	"errors"
 	"io"
@@ -12,22 +11,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-sql-driver/mysql"
 	"github.com/hromov/jevelina/cdb/models"
 )
 
-var mysqlErr *mysql.MySQLError
 var contactFields map[string]int
 
-//key = hash, val = id
-var contactsMap map[string]uint64 = map[string]uint64{}
-
-func hashIt(s string) string {
-	h := sha1.New()
-	h.Write([]byte(s))
-	bs := h.Sum(nil)
-	return string(bs)
+func contactField(record []string, name string) string {
+	return record[contactFields[name]]
 }
+
+//key = hash, val = id
+var contactsourcesMap map[string]uint64 = map[string]uint64{}
 
 func (is *ImportService) Push_Contacts(path string, n int) error {
 	f, err := os.Open(path)
@@ -73,9 +67,9 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 		// }
 
 		if contact := recordToContact(record); contact != nil {
-			responsible := uMap[field(record, "Ответственный")]
-			created := uMap[field(record, "Кем создан контакт")]
-			source := sMap[field(record, "Источник")]
+			responsible := usersMap[contactField(record, "Ответственный")]
+			created := usersMap[contactField(record, "Кем создан контакт")]
+			source := sourcesMap[contactField(record, "Источник")]
 			if responsible != 0 {
 				contact.ResponsibleID = &responsible
 			}
@@ -86,7 +80,7 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 				contact.SourceID = &source
 			}
 			tags := []models.Tag{}
-			for _, tag := range strings.Split(field(record, "Теги"), ",") {
+			for _, tag := range strings.Split(contactField(record, "Теги"), ",") {
 				if _, exist := tagsMap[tag]; exist {
 					tags = append(tags, models.Tag{ID: tagsMap[tag]})
 				}
@@ -99,7 +93,7 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 					log.Printf("Can't create contact for record # = %d error: %s", i, err.Error())
 				} else {
-					log.Printf("Can't create contact. Respoonsible = %d, (%+v), created = %d (%+v), source = %d (%+v)", responsible, uMap, created, uMap, source, sMap)
+					log.Printf("Can't create contact. Respoonsible = %d, (%+v), created = %d (%+v), source = %d (%+v)", responsible, usersMap, created, usersMap, source, sourcesMap)
 				}
 			}
 
@@ -115,14 +109,14 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 			// 	log.Printf("contacts for record # = %d created: %+v", i, c)
 			// }
 			//notices 1-5, fullname, contact responsible, records[21:30], records[30:44]
-			str := field(record, "Полное имя контакта") + field(record, "Ответственный") + strings.Join(record[contactFields["Рабочий телефон"]:contactFields["Web"]], ",") + strings.Join(record[contactFields["Город"]:contactFields["tid"]], ",")
+			str := contactField(record, "Полное имя контакта") + contactField(record, "Ответственный") + strings.Join(record[contactFields["Рабочий телефон"]:contactFields["Web"]], ",") + strings.Join(record[contactFields["Город"]:contactFields["tid"]], ",")
 			// log.Println(str)
-			hashed := hashIt(str)
-			if _, exist := contactsMap[hashed]; exist {
+			hashed := getHash(str)
+			if _, exist := contactsourcesMap[hashed]; exist {
 				// log.Println("WTF!!!!!!! contact exist with hash = ", hashed)
 				log.Println(contact)
 			} else {
-				contactsMap[hashed] = contact.ID
+				contactsourcesMap[hashed] = contact.ID
 			}
 		} else {
 			_ = csvwriter.Write(record)
@@ -140,10 +134,6 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 	// return records
 }
 
-func field(record []string, name string) string {
-	return record[contactFields[name]]
-}
-
 func recordToContact(record []string) *models.Contact {
 	if len(record) == 0 {
 		return nil
@@ -154,33 +144,33 @@ func recordToContact(record []string) *models.Contact {
 		return nil
 	}
 	contact := &models.Contact{}
-	id, err := strconv.ParseUint(field(record, "ID"), 10, 64)
+	id, err := strconv.ParseUint(contactField(record, "ID"), 10, 64)
 	if err != nil || id == 0 {
 		log.Println("ID parse error: " + err.Error())
 		return nil
 	}
 	contact.ID = id
-	if field(record, "Тип") == "контакт" {
+	if contactField(record, "Тип") == "контакт" {
 		contact.IsPerson = true
 	}
-	if field(record, "Имя") != "" {
-		contact.Name = field(record, "Имя")
+	if contactField(record, "Имя") != "" {
+		contact.Name = contactField(record, "Имя")
 	} else {
-		contact.Name = field(record, "Полное имя контакта")
+		contact.Name = contactField(record, "Полное имя контакта")
 	}
-	contact.SecondName = field(record, "Фамилия")
-	if !contact.IsPerson && field(record, "Название компании") != "" {
-		contact.Name = field(record, "Название компании")
+	contact.SecondName = contactField(record, "Фамилия")
+	if !contact.IsPerson && contactField(record, "Название компании") != "" {
+		contact.Name = contactField(record, "Название компании")
 	}
 	//implement real user by get func
 	contact.ResponsibleID = nil
 	contact.CreatedID = nil
 
 	const timeForm = "02.01.2006 15:04:05"
-	if t, err := time.Parse(timeForm, field(record, "Дата создания контакта")); err == nil {
+	if t, err := time.Parse(timeForm, contactField(record, "Дата создания контакта")); err == nil {
 		contact.CreatedAt = t
 	}
-	if t, err := time.Parse(timeForm, field(record, "Дата редактирования")); err == nil {
+	if t, err := time.Parse(timeForm, contactField(record, "Дата редактирования")); err == nil {
 		contact.UpdatedAt = t
 	}
 
@@ -218,18 +208,18 @@ func recordToContact(record []string) *models.Contact {
 		contact.SecondEmail = strings.Join(emails[1:], ",")
 	}
 	// Email end
-	contact.URL = field(record, "Web")
-	contact.Address = field(record, "Адрес")
-	contact.City = field(record, "Город")
+	contact.URL = contactField(record, "Web")
+	contact.Address = contactField(record, "Адрес")
+	contact.City = contactField(record, "Город")
 
 	// implements real source
 	contact.SourceID = nil
 
-	contact.Position = field(record, "Должность")
+	contact.Position = contactField(record, "Должность")
 
-	contact.Analytics.CID = field(record, "cid")
-	contact.Analytics.UID = field(record, "uid")
-	contact.Analytics.TID = field(record, "tid")
+	contact.Analytics.CID = contactField(record, "cid")
+	contact.Analytics.UID = contactField(record, "uid")
+	contact.Analytics.TID = contactField(record, "tid")
 
 	// log.Printf("all ok: %+v", contact)
 	return contact
