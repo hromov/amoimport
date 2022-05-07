@@ -32,17 +32,21 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 	leadFields = make(map[string]int)
 
 	role := &models.Role{Role: "Admin"}
-	if err := is.DB.Create(role).Error; err != nil {
+	if err := is.DB.Create(&role).Error; err != nil {
 		if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 			log.Printf("Can't create admin role error: %s", err.Error())
 		}
 	}
 
 	role = &models.Role{Role: "User"}
-	if err := is.DB.Create(role).Error; err != nil {
+	if err := is.DB.Create(&role).Error; err != nil {
 		if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 			log.Printf("Can't create user role error: %s", err.Error())
 		}
+	}
+	//probably we run it for the second time
+	if role.ID == 0 {
+		role.ID = 2
 	}
 
 	for i := 0; i < n; i++ {
@@ -60,6 +64,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 			for index, value := range record {
 				leadFields[value] = index
 			}
+			// log.Printf("%+v", leadFields)
 			continue
 		}
 		// Display record.
@@ -71,7 +76,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 		// for value := range record {
 		// 	fmt.Printf(" %d = %v\n", value, record[value])
 		// }
-		respName := field(record, "Ответственный")
+		respName := leadField(record, "Ответственный")
 		if _, exist := misc[respName]; !exist && respName != "" {
 			misc[respName] = -1
 			email := fmt.Sprintf("email_%d@gmail.com", i)
@@ -82,7 +87,8 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 				}
 			}
 		}
-		stepName := field(record, "Этап сделки")
+
+		stepName := leadField(record, "Этап сделки")
 		if _, exist := misc[stepName]; !exist && stepName != "" {
 			misc[stepName] = -1
 			if err := is.DB.Create(&models.Step{Name: stepName}).Error; err != nil {
@@ -91,7 +97,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 				}
 			}
 		}
-		prodName := field(record, "Товар")
+		prodName := leadField(record, "Товар")
 		if _, exist := misc[prodName]; !exist && prodName != "" {
 			misc[prodName] = -1
 			if err := is.DB.Create(&models.Product{Name: prodName}).Error; err != nil {
@@ -100,7 +106,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 				}
 			}
 		}
-		manufName := field(record, "Производитель")
+		manufName := leadField(record, "Производитель")
 		if _, exist := misc[manufName]; !exist && manufName != "" {
 			misc[manufName] = -1
 			if err := is.DB.Create(&models.Manufacturer{Name: manufName}).Error; err != nil {
@@ -109,7 +115,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 				}
 			}
 		}
-		sourceName := field(record, "Источник")
+		sourceName := leadField(record, "Источник")
 		if _, exist := misc[sourceName]; !exist && sourceName != "" {
 			misc[sourceName] = -1
 			if err := is.DB.Create(&models.Source{Name: sourceName}).Error; err != nil {
@@ -118,7 +124,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 				}
 			}
 		}
-		for _, tag := range strings.Split(field(record, "Теги"), ",") {
+		for _, tag := range strings.Split(leadField(record, "Теги"), ",") {
 			if _, exist := misc[tag]; !exist && tag != "" {
 				misc[tag] = -1
 				if err := is.DB.Create(&models.Tag{Name: tag}).Error; err != nil {

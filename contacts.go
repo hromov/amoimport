@@ -119,7 +119,7 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 			// log.Println(str)
 			hashed := hashIt(str)
 			if _, exist := contactsMap[hashed]; exist {
-				log.Println("WTF!!!!!!! contact exist with hash = ", hashed)
+				// log.Println("WTF!!!!!!! contact exist with hash = ", hashed)
 				log.Println(contact)
 			} else {
 				contactsMap[hashed] = contact.ID

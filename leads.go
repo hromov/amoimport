@@ -15,9 +15,13 @@ import (
 
 var leadFields map[string]int
 
+func leadField(record []string, name string) string {
+	return record[contactFields[name]]
+}
+
 func Get_Contact_ID(record []string) *uint64 {
 	//notices 1-5, fullname, contact responsible, records[21:30], records[30:44]
-	str := field(record, "Полное имя контакта") + field(record, "Ответственный за контакт") + strings.Join(record[leadFields["Рабочий телефон"]:leadFields["utm_source"]], ",")
+	str := leadField(record, "Полное имя контакта") + leadField(record, "Ответственный за контакт") + strings.Join(record[leadFields["Рабочий телефон"]:leadFields["utm_source"]], ",")
 	// log.Println(str)
 	hashed := hashIt(str)
 	if _, exist := contactsMap[hashed]; !exist {
@@ -77,13 +81,13 @@ func (is *ImportService) Push_Leads(path string, n int) error {
 
 		if lead := recordToLead(record); lead != nil {
 
-			responsible := uMap[field(record, "Ответственный")]
-			created := uMap[field(record, "Кем создана сделка")]
-			source := sMap[field(record, "Источник")]
+			responsible := uMap[leadField(record, "Ответственный")]
+			created := uMap[leadField(record, "Кем создана сделка")]
+			source := sMap[leadField(record, "Источник")]
 
-			prod := pMap[field(record, "Товар")]
-			manuf := mMap[field(record, "Производитель")]
-			step := stepsMap[field(record, "Этап сделки")]
+			prod := pMap[leadField(record, "Товар")]
+			manuf := mMap[leadField(record, "Производитель")]
+			step := stepsMap[leadField(record, "Этап сделки")]
 			if responsible != 0 {
 				lead.ResponsibleID = &responsible
 			}
@@ -103,7 +107,7 @@ func (is *ImportService) Push_Leads(path string, n int) error {
 				lead.StepID = &step
 			}
 			tags := []models.Tag{}
-			for _, tag := range strings.Split(field(record, "Теги"), ",") {
+			for _, tag := range strings.Split(leadField(record, "Теги"), ",") {
 				if _, exist := tagsMap[tag]; exist {
 					tags = append(tags, models.Tag{ID: tagsMap[tag]})
 				}
@@ -158,14 +162,14 @@ func recordToLead(record []string) *models.Lead {
 		return nil
 	}
 	lead := &models.Lead{}
-	id, err := strconv.ParseUint(field(record, "ID"), 10, 64)
+	id, err := strconv.ParseUint(leadField(record, "ID"), 10, 64)
 	if err != nil || id == 0 {
 		log.Println("ID parse error: " + err.Error())
 		return nil
 	}
 	lead.ID = id
-	lead.Name = field(record, "ID")
-	budget, err := strconv.ParseUint(field(record, "Название сделки"), 10, 32)
+	lead.Name = leadField(record, "ID")
+	budget, err := strconv.ParseUint(leadField(record, "Название сделки"), 10, 32)
 	if err == nil {
 		lead.Budget = uint32(budget)
 	}
@@ -180,14 +184,14 @@ func recordToLead(record []string) *models.Lead {
 	lead.CreatedID = nil
 
 	const timeForm = "02.01.2006 15:04:05"
-	if t, err := time.Parse(timeForm, field(record, "Дата создания сделки")); err == nil {
+	if t, err := time.Parse(timeForm, leadField(record, "Дата создания сделки")); err == nil {
 		lead.CreatedAt = t
 	}
 
-	if t, err := time.Parse(timeForm, field(record, "Дата редактирования")); err == nil {
+	if t, err := time.Parse(timeForm, leadField(record, "Дата редактирования")); err == nil {
 		lead.UpdatedAt = t
 	}
-	if t, err := time.Parse(timeForm, field(record, "Дата закрытия")); err == nil {
+	if t, err := time.Parse(timeForm, leadField(record, "Дата закрытия")); err == nil {
 		lead.ClosedAt = &t
 	}
 
@@ -197,12 +201,12 @@ func recordToLead(record []string) *models.Lead {
 	lead.ProductID = nil
 	lead.ManufacturerID = nil
 
-	lead.Analytics.CID = field(record, "cid")
-	lead.Analytics.UID = field(record, "uid")
-	lead.Analytics.TID = field(record, "tid")
+	lead.Analytics.CID = leadField(record, "cid")
+	lead.Analytics.UID = leadField(record, "uid")
+	lead.Analytics.TID = leadField(record, "tid")
 	// // implements real source record[74]
 	// contact.SourceID = nil
-	lead.Analytics.Domain = field(record, "domain")
+	lead.Analytics.Domain = leadField(record, "domain")
 
 	// log.Printf("all ok: %+v", lead)
 	return lead
