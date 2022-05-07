@@ -129,7 +129,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 		}
 
 	}
-	var sources []*models.Source
+	var sources []models.Source
 	if err := is.DB.Find(&sources).Error; err != nil {
 		return err
 	}
@@ -140,7 +140,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 	for _, source := range sources {
 		sourcesMap[source.Name] = source.ID
 	}
-	var users []*models.User
+	var users []models.User
 	if err := is.DB.Find(&users).Error; err != nil {
 		return err
 	}
@@ -151,7 +151,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 		usersMap[user.Name] = user.ID
 	}
 
-	var products []*models.Product
+	var products []models.Product
 	if err := is.DB.Find(&products).Error; err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 		productsMap[item.Name] = item.ID
 	}
 
-	var manufs []*models.Manufacturer
+	var manufs []models.Manufacturer
 	if err := is.DB.Find(&manufs).Error; err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 		manufacturersMap[item.Name] = item.ID
 	}
 
-	var steps []*models.Step
+	var steps []models.Step
 	if err := is.DB.Find(&steps).Error; err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 		stepsMap[item.Name] = item.ID
 	}
 
-	var tags []*models.Tag
+	var tags []models.Tag
 	if err := is.DB.Find(&tags).Error; err != nil {
 		return err
 	}
