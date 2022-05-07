@@ -36,6 +36,14 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 	}
 	defer f.Close()
 	r := csv.NewReader(f)
+
+	csvFile, err := os.Create("broken_contacts.csv")
+	if err != nil {
+		log.Fatalf("failed creating file: %s", err)
+	}
+	csvFile.Close()
+	csvwriter := csv.NewWriter(csvFile)
+
 	contactFields = make(map[string]int)
 	for i := 0; i < n; i++ {
 		record, err := r.Read()
@@ -116,8 +124,10 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 			} else {
 				contactsMap[hashed] = contact.ID
 			}
+		} else {
+			_ = csvwriter.Write(record)
 		}
-
+		csvwriter.Flush()
 	}
 	return nil
 
@@ -138,11 +148,11 @@ func recordToContact(record []string) *models.Contact {
 	if len(record) == 0 {
 		return nil
 	}
-	// if len(record) != 43 {
-	// 	log.Println("Wrong record schema? len(record) = ", len(record))
-	// 	log.Println(record)
-	// 	return nil
-	// }
+	if len(record) != 43 {
+		// log.Println("Wrong record schema? len(record) = ", len(record))
+		// log.Println(record)
+		return nil
+	}
 	contact := &models.Contact{}
 	id, err := strconv.ParseUint(field(record, "ID"), 10, 64)
 	if err != nil || id == 0 {

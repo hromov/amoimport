@@ -22,7 +22,7 @@ func Get_Contact_ID(record []string) *uint64 {
 	hashed := hashIt(str)
 	if _, exist := contactsMap[hashed]; !exist {
 		//TODO: put them in separate file and not into the base
-		log.Println("WTF!!!!!!! can'f find contact for lead = ", str)
+		// log.Println("WTF!!!!!!! can'f find contact for lead = ", str)
 		return nil
 	}
 	r := contactsMap[hashed]
@@ -37,6 +37,13 @@ func (is *ImportService) Push_Leads(path string, n int) error {
 	defer f.Close()
 
 	r := csv.NewReader(f)
+
+	csvFile, err := os.Create("broken_leads.csv")
+	if err != nil {
+		log.Fatalf("failed creating file: %s", err)
+	}
+	csvFile.Close()
+	csvwriter := csv.NewWriter(csvFile)
 
 	leadFields = make(map[string]int)
 	for i := 0; i < n; i++ {
@@ -124,9 +131,12 @@ func (is *ImportService) Push_Leads(path string, n int) error {
 			// } else {
 			// 	log.Printf("lead for record # = %d created: %+v", i, c)
 			// }
+		} else {
+			_ = csvwriter.Write(record)
 		}
-
 	}
+
+	csvwriter.Flush()
 	return nil
 
 	// csvReader := csv.NewReader(f)
@@ -142,11 +152,11 @@ func recordToLead(record []string) *models.Lead {
 	if len(record) == 0 {
 		return nil
 	}
-	// if len(record) != 76 {
-	// 	log.Println("Wrong record schema for leads? len(record) = ", len(record))
-	// 	log.Println(record)
-	// 	return nil
-	// }
+	if len(record) != 76 {
+		log.Println("Wrong record schema for leads? len(record) = ", len(record))
+		log.Println(record)
+		return nil
+	}
 	lead := &models.Lead{}
 	id, err := strconv.ParseUint(field(record, "ID"), 10, 64)
 	if err != nil || id == 0 {
@@ -160,7 +170,9 @@ func recordToLead(record []string) *models.Lead {
 		lead.Budget = uint32(budget)
 	}
 	lead.ContactID = Get_Contact_ID(record)
-	// lead.ContactID = nil
+	if lead.ContactID == nil {
+		return nil
+	}
 
 	//responsible and created from contacts goes here
 	//implement real user by get func
@@ -178,24 +190,6 @@ func recordToLead(record []string) *models.Lead {
 	if t, err := time.Parse(timeForm, field(record, "Дата закрытия")); err == nil {
 		lead.ClosedAt = &t
 	}
-	// lead.ClosedAt, _ = time.Parse(timeForm, record[8])
-	// createdTime := strings.ReplaceAll(record[4], ".", "-")
-	// created, err := time.Parse(timeForm, createdTime)
-	// if err == nil {
-	// 	lead.CreatedAt = created
-	// }
-
-	// updatedTime := strings.ReplaceAll(record[6], ".", "-")
-	// updated, err := time.Parse(timeForm, updatedTime)
-	// if err == nil {
-	// 	lead.UpdatedAt = updated
-	// }
-
-	// closedTime := strings.ReplaceAll(record[8], ".", "-")
-	// closed, err := time.Parse(timeForm, closedTime)
-	// if err == nil {
-	// 	lead.ClosedAt = &closed
-	// }
 
 	//tags record[9]
 	//genereate from record[15]
