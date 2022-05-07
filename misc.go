@@ -29,6 +29,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 
 	r := csv.NewReader(f)
 	misc := map[string]int{}
+	leadFields = make(map[string]int)
 
 	role := &models.Role{Role: "Admin"}
 	if err := is.DB.Create(role).Error; err != nil {
