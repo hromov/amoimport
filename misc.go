@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (is *ImportService) Push_Misc(path string, n int) error {
+func (amo *AmoService) Push_Misc(path string, n int) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return errors.New("Unable to read input file " + path + ". Error: " + err.Error())
@@ -25,14 +25,14 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 	leadFields = make(map[string]int)
 
 	role := &models.Role{Role: "Admin"}
-	if err := is.DB.Create(&role).Error; err != nil {
+	if err := amo.DB.Create(&role).Error; err != nil {
 		if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 			log.Printf("Can't create admin role error: %s", err.Error())
 		}
 	}
 
 	role = &models.Role{Role: "User"}
-	if err := is.DB.Create(&role).Error; err != nil {
+	if err := amo.DB.Create(&role).Error; err != nil {
 		if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 			log.Printf("Can't create user role error: %s", err.Error())
 		}
@@ -74,7 +74,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 			misc[respName] = -1
 			email := fmt.Sprintf("email_%d@gmail.com", i)
 			//Hash also = email, because hashing just email could be dangerous
-			if err := is.DB.Omit(clause.Associations).Create(&models.User{Name: respName, Email: email, Hash: email, RoleID: &role.ID}).Error; err != nil {
+			if err := amo.DB.Omit(clause.Associations).Create(&models.User{Name: respName, Email: email, Hash: email, RoleID: &role.ID}).Error; err != nil {
 				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 					log.Printf("Can't create user for record # = %d error: %s", i, err.Error())
 				}
@@ -84,7 +84,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 		stepName := leadField(record, "Этап сделки")
 		if _, exist := misc[stepName]; !exist && stepName != "" {
 			misc[stepName] = -1
-			if err := is.DB.Create(&models.Step{Name: stepName}).Error; err != nil {
+			if err := amo.DB.Create(&models.Step{Name: stepName}).Error; err != nil {
 				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 					log.Printf("Can't create step for record # = %d error: %s", i, err.Error())
 				}
@@ -93,7 +93,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 		prodName := leadField(record, "Товар")
 		if _, exist := misc[prodName]; !exist && prodName != "" {
 			misc[prodName] = -1
-			if err := is.DB.Create(&models.Product{Name: prodName}).Error; err != nil {
+			if err := amo.DB.Create(&models.Product{Name: prodName}).Error; err != nil {
 				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 					log.Printf("Can't create product for record # = %d error: %s", i, err.Error())
 				}
@@ -102,7 +102,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 		manufName := leadField(record, "Производитель")
 		if _, exist := misc[manufName]; !exist && manufName != "" {
 			misc[manufName] = -1
-			if err := is.DB.Create(&models.Manufacturer{Name: manufName}).Error; err != nil {
+			if err := amo.DB.Create(&models.Manufacturer{Name: manufName}).Error; err != nil {
 				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 					log.Printf("Can't create manufacturer for record # = %d error: %s", i, err.Error())
 				}
@@ -111,7 +111,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 		sourceName := leadField(record, "Источник")
 		if _, exist := misc[sourceName]; !exist && sourceName != "" {
 			misc[sourceName] = -1
-			if err := is.DB.Create(&models.Source{Name: sourceName}).Error; err != nil {
+			if err := amo.DB.Create(&models.Source{Name: sourceName}).Error; err != nil {
 				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 					log.Printf("Can't create source for record # = %d error: %s", i, err.Error())
 				}
@@ -120,7 +120,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 		for _, tag := range strings.Split(leadField(record, "Теги"), ",") {
 			if _, exist := misc[tag]; !exist && tag != "" {
 				misc[tag] = -1
-				if err := is.DB.Create(&models.Tag{Name: tag}).Error; err != nil {
+				if err := amo.DB.Create(&models.Tag{Name: tag}).Error; err != nil {
 					if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 						log.Printf("Can't create source for record # = %d error: %s", i, err.Error())
 					}
@@ -130,7 +130,7 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 
 	}
 	var sources []models.Source
-	if err := is.DB.Find(&sources).Error; err != nil {
+	if err := amo.DB.Find(&sources).Error; err != nil {
 		return err
 	}
 	if len(sources) == 0 {
@@ -138,61 +138,61 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 	}
 
 	for _, source := range sources {
-		sourcesMap[source.Name] = source.ID
+		amo.sources[source.Name] = source.ID
 	}
 	var users []models.User
-	if err := is.DB.Find(&users).Error; err != nil {
+	if err := amo.DB.Find(&users).Error; err != nil {
 		return err
 	}
 	if len(users) == 0 {
 		log.Println("No users were found")
 	}
 	for _, user := range users {
-		usersMap[user.Name] = user.ID
+		amo.users[user.Name] = user.ID
 	}
 
 	var products []models.Product
-	if err := is.DB.Find(&products).Error; err != nil {
+	if err := amo.DB.Find(&products).Error; err != nil {
 		return err
 	}
 	if len(users) == 0 {
 		log.Println("No products were found")
 	}
 	for _, item := range products {
-		productsMap[item.Name] = item.ID
+		amo.products[item.Name] = item.ID
 	}
 
 	var manufs []models.Manufacturer
-	if err := is.DB.Find(&manufs).Error; err != nil {
+	if err := amo.DB.Find(&manufs).Error; err != nil {
 		return err
 	}
 	if len(manufs) == 0 {
 		log.Println("No manufs were found")
 	}
 	for _, item := range manufs {
-		manufacturersMap[item.Name] = item.ID
+		amo.manufacturers[item.Name] = item.ID
 	}
 
 	var steps []models.Step
-	if err := is.DB.Find(&steps).Error; err != nil {
+	if err := amo.DB.Find(&steps).Error; err != nil {
 		return err
 	}
 	if len(manufs) == 0 {
 		log.Println("No steps were found")
 	}
 	for _, item := range steps {
-		stepsMap[item.Name] = item.ID
+		amo.steps[item.Name] = item.ID
 	}
 
 	var tags []models.Tag
-	if err := is.DB.Find(&tags).Error; err != nil {
+	if err := amo.DB.Find(&tags).Error; err != nil {
 		return err
 	}
 	if len(tags) == 0 {
-		log.Println("No steps were found")
+		log.Println("No tags were found")
 	}
 	for _, item := range tags {
-		tagsMap[item.Name] = item.ID
+		amo.tags[item.Name] = item.ID
 	}
 
 	return nil

@@ -19,21 +19,7 @@ func leadField(record []string, name string) string {
 	return record[leadFields[name]]
 }
 
-func Get_Contact_ID(record []string) *uint64 {
-	//notices 1-5, fullname, contact responsible, records[21:30], records[30:44]
-	str := leadField(record, "Полное имя контакта") + leadField(record, "Ответственный за контакт") + strings.Join(record[leadFields["Рабочий телефон"]:leadFields["utm_source"]], ",")
-	// log.Println(str)
-	hashed := getHash(str)
-	if _, exist := contactsourcesMap[hashed]; !exist {
-		//TODO: put them in separate file and not into the base
-		// log.Println("WTF!!!!!!! can'f find contact for lead = ", str)
-		return nil
-	}
-	r := contactsourcesMap[hashed]
-	return &r
-}
-
-func (is *ImportService) Push_Leads(path string, n int) error {
+func (amo *AmoService) Push_Leads(path string, n int) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return errors.New("Unable to read input file " + path + ". Error: " + err.Error())
@@ -46,7 +32,7 @@ func (is *ImportService) Push_Leads(path string, n int) error {
 	if err != nil {
 		log.Fatalf("failed creating file: %s", err)
 	}
-	csvFile.Close()
+	defer csvFile.Close()
 	csvwriter := csv.NewWriter(csvFile)
 
 	leadFields = make(map[string]int)
@@ -79,15 +65,15 @@ func (is *ImportService) Push_Leads(path string, n int) error {
 		// 	fmt.Printf(" %d = %v\n", value, record[value])
 		// }
 
-		if lead := recordToLead(record); lead != nil {
+		if lead := amo.recordToLead(record); lead != nil {
 
-			responsible := usersMap[leadField(record, "Ответственный")]
-			created := usersMap[leadField(record, "Кем создана сделка")]
-			source := sourcesMap[leadField(record, "Источник")]
+			responsible := amo.users[leadField(record, "Ответственный")]
+			created := amo.users[leadField(record, "Кем создана сделка")]
+			source := amo.sources[leadField(record, "Источник")]
 
-			prod := productsMap[leadField(record, "Товар")]
-			manuf := manufacturersMap[leadField(record, "Производитель")]
-			step := stepsMap[leadField(record, "Этап сделки")]
+			prod := amo.products[leadField(record, "Товар")]
+			manuf := amo.manufacturers[leadField(record, "Производитель")]
+			step := amo.steps[leadField(record, "Этап сделки")]
 			if responsible != 0 {
 				lead.ResponsibleID = &responsible
 			}
@@ -108,15 +94,15 @@ func (is *ImportService) Push_Leads(path string, n int) error {
 			}
 			tags := []models.Tag{}
 			for _, tag := range strings.Split(leadField(record, "Теги"), ",") {
-				if _, exist := tagsMap[tag]; exist {
-					tags = append(tags, models.Tag{ID: tagsMap[tag]})
+				if _, exist := amo.tags[tag]; exist {
+					tags = append(tags, models.Tag{ID: amo.tags[tag]})
 				}
 			}
 			if len(tags) != 0 {
 				lead.Tags = tags
 			}
 
-			if err := is.DB.Create(lead).Error; err != nil {
+			if err := amo.DB.Create(lead).Error; err != nil {
 				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 					log.Printf("Can't create lead for record # = %d error: %s", i, err.Error())
 				} else {
@@ -127,7 +113,7 @@ func (is *ImportService) Push_Leads(path string, n int) error {
 			for _, r := range record[leadFields["Примечание"]:leadFields["Примечание 5"]] {
 				if r != "" {
 					notice := &models.Task{ParentID: lead.ID, Description: strings.Trim(r, ""), ResponsibleID: &responsible, CreatedID: &responsible}
-					if err = is.DB.Create(notice).Error; err != nil {
+					if err = amo.DB.Create(notice).Error; err != nil {
 						log.Println(err)
 					}
 				}
@@ -152,12 +138,12 @@ func (is *ImportService) Push_Leads(path string, n int) error {
 	// return records
 }
 
-func recordToLead(record []string) *models.Lead {
+func (amo *AmoService) recordToLead(record []string) *models.Lead {
 	if len(record) == 0 {
 		return nil
 	}
 	if len(record) != 76 {
-		// log.Println("Wrong record schema for leads? len(record) = ", len(record))
+		log.Println("Wrong record schema for leads? len(record) = ", len(record))
 		// log.Println(record)
 		return nil
 	}
@@ -173,8 +159,11 @@ func recordToLead(record []string) *models.Lead {
 	if err == nil {
 		lead.Budget = uint32(budget)
 	}
-	lead.ContactID = Get_Contact_ID(record)
-	if lead.ContactID == nil {
+
+	stringToHash := leadField(record, "Полное имя контакта") + leadField(record, "Ответственный за контакт") + strings.Join(record[leadFields["Рабочий телефон"]:leadFields["utm_source"]], ",")
+	if contactID, exist := amo.contacts[getHash(stringToHash)]; exist {
+		lead.ContactID = &contactID
+	} else {
 		return nil
 	}
 

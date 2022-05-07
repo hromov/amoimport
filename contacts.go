@@ -20,10 +20,10 @@ func contactField(record []string, name string) string {
 	return record[contactFields[name]]
 }
 
-//key = hash, val = id
-var contactsourcesMap map[string]uint64 = map[string]uint64{}
+func (amo *AmoService) Push_Contacts(path string, n int) error {
+	contactFields = make(map[string]int)
+	amo.contacts = make(map[string]uint64)
 
-func (is *ImportService) Push_Contacts(path string, n int) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return errors.New("Unable to read input file " + path + ". Error: " + err.Error())
@@ -35,10 +35,9 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 	if err != nil {
 		log.Fatalf("failed creating file: %s", err)
 	}
-	csvFile.Close()
+	defer csvFile.Close()
 	csvwriter := csv.NewWriter(csvFile)
 
-	contactFields = make(map[string]int)
 	for i := 0; i < n; i++ {
 		record, err := r.Read()
 		// Stop at EOF.
@@ -67,9 +66,9 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 		// }
 
 		if contact := recordToContact(record); contact != nil {
-			responsible := usersMap[contactField(record, "Ответственный")]
-			created := usersMap[contactField(record, "Кем создан контакт")]
-			source := sourcesMap[contactField(record, "Источник")]
+			responsible := amo.users[contactField(record, "Ответственный")]
+			created := amo.users[contactField(record, "Кем создан контакт")]
+			source := amo.sources[contactField(record, "Источник")]
 			if responsible != 0 {
 				contact.ResponsibleID = &responsible
 			}
@@ -81,26 +80,26 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 			}
 			tags := []models.Tag{}
 			for _, tag := range strings.Split(contactField(record, "Теги"), ",") {
-				if _, exist := tagsMap[tag]; exist {
-					tags = append(tags, models.Tag{ID: tagsMap[tag]})
+				if _, exist := amo.tags[tag]; exist {
+					tags = append(tags, models.Tag{ID: amo.tags[tag]})
 				}
 			}
 			if len(tags) != 0 {
 				contact.Tags = tags
 			}
 			// .Omit(clause.Associations)
-			if err := is.DB.Create(contact).Error; err != nil {
+			if err := amo.DB.Create(contact).Error; err != nil {
 				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 					log.Printf("Can't create contact for record # = %d error: %s", i, err.Error())
 				} else {
-					log.Printf("Can't create contact. Respoonsible = %d, (%+v), created = %d (%+v), source = %d (%+v)", responsible, usersMap, created, usersMap, source, sourcesMap)
+					log.Printf("Can't create contact. Respoonsible = %d, (%+v), created = %d (%+v), source = %d (%+v)", responsible, amo.users, created, amo.users, source, amo.sources)
 				}
 			}
 
 			for _, r := range record[contactFields["Примечание 1"]:contactFields["Примечание 5"]] {
 				if r != "" {
 					notice := &models.Task{ParentID: contact.ID, Description: strings.Trim(r, ""), ResponsibleID: &responsible, CreatedID: &responsible}
-					if err := is.DB.Create(notice).Error; err != nil {
+					if err := amo.DB.Create(notice).Error; err != nil {
 						log.Println(err)
 					}
 				}
@@ -112,11 +111,11 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 			str := contactField(record, "Полное имя контакта") + contactField(record, "Ответственный") + strings.Join(record[contactFields["Рабочий телефон"]:contactFields["Web"]], ",") + strings.Join(record[contactFields["Город"]:contactFields["tid"]], ",")
 			// log.Println(str)
 			hashed := getHash(str)
-			if _, exist := contactsourcesMap[hashed]; exist {
+			if _, exist := amo.contacts[hashed]; exist {
 				// log.Println("WTF!!!!!!! contact exist with hash = ", hashed)
 				log.Println(contact)
 			} else {
-				contactsourcesMap[hashed] = contact.ID
+				amo.contacts[hashed] = contact.ID
 			}
 		} else {
 			_ = csvwriter.Write(record)
