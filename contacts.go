@@ -189,7 +189,7 @@ func recordToContact(record []string) *models.Contact {
 
 	// Phones start
 	dc := regexp.MustCompile(`[^\d|,]`)
-	str := dc.ReplaceAllString(strings.Join(record[contactFields["Рабочий email"]:contactFields["Рабочий email"]], ","), "")
+	str := dc.ReplaceAllString(strings.Join(record[contactFields["Рабочий телефон"]:contactFields["Рабочий email"]], ","), "")
 	digits := regexp.MustCompile(`(\d){6,13}`)
 	// log.Println(str)
 	phones := digits.FindAllString(str, -1)
@@ -208,7 +208,7 @@ func recordToContact(record []string) *models.Contact {
 
 	// Email start
 	mx := regexp.MustCompile(`[\w-\.]+@([\w-]+\.)+[\w-]{2,4}`)
-	emails := mx.FindAllString(strings.Join(record[leadFields["Рабочий email"]:leadFields["Web"]], ","), -1)
+	emails := mx.FindAllString(strings.Join(record[contactFields["Рабочий email"]:contactFields["Web"]], ","), -1)
 	switch len(emails) {
 	case 0:
 		break

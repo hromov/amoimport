@@ -153,8 +153,8 @@ func recordToLead(record []string) *models.Lead {
 		return nil
 	}
 	if len(record) != 76 {
-		log.Println("Wrong record schema for leads? len(record) = ", len(record))
-		log.Println(record)
+		// log.Println("Wrong record schema for leads? len(record) = ", len(record))
+		// log.Println(record)
 		return nil
 	}
 	lead := &models.Lead{}
