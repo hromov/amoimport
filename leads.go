@@ -154,16 +154,18 @@ func (amo *AmoService) recordToLead(record []string) *models.Lead {
 		return nil
 	}
 	lead.ID = id
-	lead.Name = leadField(record, "ID")
-	budget, err := strconv.ParseUint(leadField(record, "Название сделки"), 10, 32)
+	lead.Name = leadField(record, "Название сделки")
+	budget, err := strconv.ParseUint(leadField(record, "Бюджет"), 10, 32)
 	if err == nil {
 		lead.Budget = uint32(budget)
 	}
-
-	stringToHash := leadField(record, "Полное имя контакта") + leadField(record, "Ответственный за контакт") + strings.Join(record[leadFields["Рабочий телефон"]:leadFields["utm_source"]], ",")
+	// contactToHash := contactField(record, "Полное имя контакта") + contactField(record, "Ответственный") + strings.Join(record[contactFields["Рабочий телефон"]:contactFields["Web"]], ",")
+	// log.Panicln(contactToHash)
+	stringToHash := leadField(record, "Полное имя контакта") + leadField(record, "Ответственный за контакт") + strings.Join(record[leadFields["Рабочий телефон"]:leadFields["Город"]], ",")
 	if contactID, exist := amo.contacts[getHash(stringToHash)]; exist {
 		lead.ContactID = &contactID
 	} else {
+		log.Printf("no contact found for lead: %+v", lead)
 		return nil
 	}
 
@@ -245,6 +247,32 @@ func (amo *AmoService) recordToLead(record []string) *models.Lead {
 //  41 = cid
 //  42 = uid
 //  43 = tid
+
+//  18 = Рабочий телефон
+//  19 = Рабочий прямой телефон
+//  20 = Мобильный телефон
+//  21 = Факс
+//  22 = Домашний телефон
+//  23 = Другой телефон
+//  24 = Рабочий email
+//  25 = Личный email
+//  26 = Другой email
+//  27 = Web
+//  28 = Адрес
+//  29 = Город
+//  30 = Источник
+//  31 = Должность
+//  32 = Товар
+//  33 = Skype
+//  34 = ICQ
+//  35 = Jabber
+//  36 = Google Talk
+//  37 = MSN
+//  38 = Другой IM
+//  39 = Пользовательское соглашение
+//  40 = cid
+//  41 = uid
+//  42 = tid
 //  44 = utm_source
 //  45 = utm_medium
 //  46 = utm_campaign

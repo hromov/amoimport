@@ -108,9 +108,9 @@ func (amo *AmoService) Push_Contacts(path string, n int) error {
 			// 	log.Printf("contacts for record # = %d created: %+v", i, c)
 			// }
 			//notices 1-5, fullname, contact responsible, records[21:30], records[30:44]
-			str := contactField(record, "Полное имя контакта") + contactField(record, "Ответственный") + strings.Join(record[contactFields["Рабочий телефон"]:contactFields["Web"]], ",") + strings.Join(record[contactFields["Город"]:contactFields["tid"]], ",")
+			stringToHash := contactField(record, "Полное имя контакта") + contactField(record, "Ответственный") + strings.Join(record[contactFields["Рабочий телефон"]:contactFields["Web"]], ",")
 			// log.Println(str)
-			hashed := getHash(str)
+			hashed := getHash(stringToHash)
 			if _, exist := amo.contacts[hashed]; exist {
 				// log.Println("WTF!!!!!!! contact exist with hash = ", hashed)
 				log.Println(contact)

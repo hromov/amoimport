@@ -18,7 +18,16 @@ type AmoService struct {
 
 func Import(db *gorm.DB, leads_path string, contacts_path string, n int) error {
 
-	amo := &AmoService{DB: db}
+	amo := &AmoService{
+		DB:            db,
+		sources:       make(map[string]uint8),
+		users:         make(map[string]uint64),
+		products:      make(map[string]uint32),
+		manufacturers: make(map[string]uint16),
+		steps:         make(map[string]uint8),
+		tags:          make(map[string]uint8),
+		contacts:      make(map[string]uint64),
+	}
 
 	if err := amo.Push_Misc(leads_path, n); err != nil {
 		return err
