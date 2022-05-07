@@ -56,6 +56,9 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 		}
 
 		if i == 0 {
+			for index, value := range record {
+				leadFields[value] = index
+			}
 			continue
 		}
 		// Display record.
@@ -67,49 +70,54 @@ func (is *ImportService) Push_Misc(path string, n int) error {
 		// for value := range record {
 		// 	fmt.Printf(" %d = %v\n", value, record[value])
 		// }
-		if _, exist := misc[record[3]]; !exist && record[3] != "" {
-			misc[record[3]] = -1
+		respName := field(record, "Ответственный")
+		if _, exist := misc[respName]; !exist && respName != "" {
+			misc[respName] = -1
 			email := fmt.Sprintf("email_%d@gmail.com", i)
 			//Hash also = email, because hashing just email could be dangerous
-			if err := is.DB.Omit(clause.Associations).Create(&models.User{Name: record[3], Email: email, Hash: email, RoleID: &role.ID}).Error; err != nil {
+			if err := is.DB.Omit(clause.Associations).Create(&models.User{Name: respName, Email: email, Hash: email, RoleID: &role.ID}).Error; err != nil {
 				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 					log.Printf("Can't create user for record # = %d error: %s", i, err.Error())
 				}
 			}
 		}
-		if _, exist := misc[record[15]]; !exist && record[15] != "" {
-			misc[record[15]] = -1
-			if err := is.DB.Create(&models.Step{Name: record[15]}).Error; err != nil {
+		stepName := field(record, "Этап сделки")
+		if _, exist := misc[stepName]; !exist && stepName != "" {
+			misc[stepName] = -1
+			if err := is.DB.Create(&models.Step{Name: stepName}).Error; err != nil {
 				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 					log.Printf("Can't create step for record # = %d error: %s", i, err.Error())
 				}
 			}
 		}
-		if _, exist := misc[record[69]]; !exist && record[69] != "" {
-			misc[record[69]] = -1
-			if err := is.DB.Create(&models.Product{Name: record[69]}).Error; err != nil {
+		prodName := field(record, "Товар")
+		if _, exist := misc[prodName]; !exist && prodName != "" {
+			misc[prodName] = -1
+			if err := is.DB.Create(&models.Product{Name: prodName}).Error; err != nil {
 				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 					log.Printf("Can't create product for record # = %d error: %s", i, err.Error())
 				}
 			}
 		}
-		if _, exist := misc[record[70]]; !exist && record[70] != "" {
-			misc[record[70]] = -1
-			if err := is.DB.Create(&models.Manufacturer{Name: record[70]}).Error; err != nil {
+		manufName := field(record, "Производитель")
+		if _, exist := misc[manufName]; !exist && manufName != "" {
+			misc[manufName] = -1
+			if err := is.DB.Create(&models.Manufacturer{Name: manufName}).Error; err != nil {
 				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 					log.Printf("Can't create manufacturer for record # = %d error: %s", i, err.Error())
 				}
 			}
 		}
-		if _, exist := misc[record[31]]; !exist && record[31] != "" {
-			misc[record[31]] = -1
-			if err := is.DB.Create(&models.Source{Name: record[31]}).Error; err != nil {
+		sourceName := field(record, "Источник")
+		if _, exist := misc[sourceName]; !exist && sourceName != "" {
+			misc[sourceName] = -1
+			if err := is.DB.Create(&models.Source{Name: sourceName}).Error; err != nil {
 				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 					log.Printf("Can't create source for record # = %d error: %s", i, err.Error())
 				}
 			}
 		}
-		for _, tag := range strings.Split(record[9], ",") {
+		for _, tag := range strings.Split(field(record, "Теги"), ",") {
 			if _, exist := misc[tag]; !exist && tag != "" {
 				misc[tag] = -1
 				if err := is.DB.Create(&models.Tag{Name: tag}).Error; err != nil {

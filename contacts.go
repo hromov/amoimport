@@ -17,6 +17,7 @@ import (
 )
 
 var mysqlErr *mysql.MySQLError
+var contactFields map[string]int
 
 //key = hash, val = id
 var contactsMap map[string]uint64 = map[string]uint64{}
@@ -35,7 +36,7 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 	}
 	defer f.Close()
 	r := csv.NewReader(f)
-
+	contactFields = make(map[string]int)
 	for i := 0; i < n; i++ {
 		record, err := r.Read()
 		// Stop at EOF.
@@ -48,6 +49,9 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 		}
 
 		if i == 0 {
+			for index, value := range record {
+				contactFields[value] = index
+			}
 			continue
 		}
 		// Display record.
@@ -61,9 +65,9 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 		// }
 
 		if contact := recordToContact(record); contact != nil {
-			responsible := uMap[record[6]]
-			created := uMap[record[8]]
-			source := sMap[record[30]]
+			responsible := uMap[field(record, "Ответственный")]
+			created := uMap[field(record, "Кем создан контакт")]
+			source := sMap[field(record, "Источник")]
 			if responsible != 0 {
 				contact.ResponsibleID = &responsible
 			}
@@ -74,7 +78,7 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 				contact.SourceID = &source
 			}
 			tags := []models.Tag{}
-			for _, tag := range strings.Split(record[12], ",") {
+			for _, tag := range strings.Split(field(record, "Теги"), ",") {
 				if _, exist := tagsMap[tag]; exist {
 					tags = append(tags, models.Tag{ID: tagsMap[tag]})
 				}
@@ -91,7 +95,7 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 				}
 			}
 
-			for _, r := range record[13:18] {
+			for _, r := range record[contactFields["Примечание 1"]:contactFields["Примечание 5"]] {
 				if r != "" {
 					notice := &models.Task{ParentID: contact.ID, Description: strings.Trim(r, ""), ResponsibleID: &responsible, CreatedID: &responsible}
 					if err := is.DB.Create(notice).Error; err != nil {
@@ -103,7 +107,7 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 			// 	log.Printf("contacts for record # = %d created: %+v", i, c)
 			// }
 			//notices 1-5, fullname, contact responsible, records[21:30], records[30:44]
-			str := record[2] + record[6] + strings.Join(record[18:27], ",") + strings.Join(record[29:43], ",")
+			str := field(record, "Полное имя контакта") + field(record, "Ответственный") + strings.Join(record[contactFields["Рабочий телефон"]:contactFields["Web"]], ",") + strings.Join(record[contactFields["Город"]:contactFields["tid"]], ",")
 			// log.Println(str)
 			hashed := hashIt(str)
 			if _, exist := contactsMap[hashed]; exist {
@@ -126,43 +130,47 @@ func (is *ImportService) Push_Contacts(path string, n int) error {
 	// return records
 }
 
+func field(record []string, name string) string {
+	return record[contactFields[name]]
+}
+
 func recordToContact(record []string) *models.Contact {
 	if len(record) == 0 {
 		return nil
 	}
-	if len(record) != 43 {
-		log.Println("Wrong record schema? len(record) = ", len(record))
-		log.Println(record)
-		return nil
-	}
+	// if len(record) != 43 {
+	// 	log.Println("Wrong record schema? len(record) = ", len(record))
+	// 	log.Println(record)
+	// 	return nil
+	// }
 	contact := &models.Contact{}
-	id, err := strconv.ParseUint(record[0], 10, 64)
+	id, err := strconv.ParseUint(field(record, "ID"), 10, 64)
 	if err != nil || id == 0 {
 		log.Println("ID parse error: " + err.Error())
 		return nil
 	}
 	contact.ID = id
-	if record[1] == "контакт" {
+	if field(record, "Тип") == "контакт" {
 		contact.IsPerson = true
 	}
-	if record[3] != "" {
-		contact.Name = record[3]
+	if field(record, "Имя") != "" {
+		contact.Name = field(record, "Имя")
 	} else {
-		contact.Name = record[2]
+		contact.Name = field(record, "Полное имя контакта")
 	}
-	contact.SecondName = record[4]
-	if !contact.IsPerson && record[5] != "" {
-		contact.Name = record[5]
+	contact.SecondName = field(record, "Фамилия")
+	if !contact.IsPerson && field(record, "Название компании") != "" {
+		contact.Name = field(record, "Название компании")
 	}
 	//implement real user by get func
 	contact.ResponsibleID = nil
 	contact.CreatedID = nil
 
 	const timeForm = "02.01.2006 15:04:05"
-	if t, err := time.Parse(timeForm, record[7]); err == nil {
+	if t, err := time.Parse(timeForm, field(record, "Дата создания контакта")); err == nil {
 		contact.CreatedAt = t
 	}
-	if t, err := time.Parse(timeForm, record[10]); err == nil {
+	if t, err := time.Parse(timeForm, field(record, "Дата редактирования")); err == nil {
 		contact.UpdatedAt = t
 	}
 
@@ -171,7 +179,7 @@ func recordToContact(record []string) *models.Contact {
 
 	// Phones start
 	dc := regexp.MustCompile(`[^\d|,]`)
-	str := dc.ReplaceAllString(strings.Join(record[18:24], ","), "")
+	str := dc.ReplaceAllString(strings.Join(record[contactFields["Рабочий email"]:contactFields["Рабочий email"]], ","), "")
 	digits := regexp.MustCompile(`(\d){6,13}`)
 	// log.Println(str)
 	phones := digits.FindAllString(str, -1)
@@ -190,7 +198,7 @@ func recordToContact(record []string) *models.Contact {
 
 	// Email start
 	mx := regexp.MustCompile(`[\w-\.]+@([\w-]+\.)+[\w-]{2,4}`)
-	emails := mx.FindAllString(strings.Join(record[24:27], ","), -1)
+	emails := mx.FindAllString(strings.Join(record[leadFields["Рабочий email"]:leadFields["Web"]], ","), -1)
 	switch len(emails) {
 	case 0:
 		break
@@ -200,18 +208,18 @@ func recordToContact(record []string) *models.Contact {
 		contact.SecondEmail = strings.Join(emails[1:], ",")
 	}
 	// Email end
-	contact.URL = record[27]
-	contact.Address = record[28]
-	contact.City = record[29]
+	contact.URL = field(record, "Web")
+	contact.Address = field(record, "Адрес")
+	contact.City = field(record, "Город")
 
 	// implements real source
 	contact.SourceID = nil
 
-	contact.Position = record[31]
+	contact.Position = field(record, "Должность")
 
-	contact.Analytics.CID = record[40]
-	contact.Analytics.UID = record[41]
-	contact.Analytics.TID = record[42]
+	contact.Analytics.CID = field(record, "cid")
+	contact.Analytics.UID = field(record, "uid")
+	contact.Analytics.TID = field(record, "tid")
 
 	// log.Printf("all ok: %+v", contact)
 	return contact

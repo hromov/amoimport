@@ -13,12 +13,15 @@ import (
 	"github.com/hromov/jevelina/cdb/models"
 )
 
+var leadFields map[string]int
+
 func Get_Contact_ID(record []string) *uint64 {
 	//notices 1-5, fullname, contact responsible, records[21:30], records[30:44]
-	str := record[17] + record[19] + strings.Join(record[21:30], ",") + strings.Join(record[30:44], ",")
+	str := field(record, "Полное имя контакта") + field(record, "Ответственный за контакт") + strings.Join(record[leadFields["Рабочий телефон"]:leadFields["utm_source"]], ",")
 	// log.Println(str)
 	hashed := hashIt(str)
 	if _, exist := contactsMap[hashed]; !exist {
+		//TODO: put them in separate file and not into the base
 		log.Println("WTF!!!!!!! can'f find contact for lead = ", str)
 		return nil
 	}
@@ -34,6 +37,8 @@ func (is *ImportService) Push_Leads(path string, n int) error {
 	defer f.Close()
 
 	r := csv.NewReader(f)
+
+	leadFields = make(map[string]int)
 	for i := 0; i < n; i++ {
 
 		record, err := r.Read()
@@ -47,6 +52,10 @@ func (is *ImportService) Push_Leads(path string, n int) error {
 		}
 
 		if i == 0 {
+			//in case we did something with misk let's init it one more time
+			for index, value := range record {
+				leadFields[value] = index
+			}
 			continue
 		}
 		// Display record.
@@ -61,13 +70,13 @@ func (is *ImportService) Push_Leads(path string, n int) error {
 
 		if lead := recordToLead(record); lead != nil {
 
-			responsible := uMap[record[3]]
-			created := uMap[record[5]]
-			source := sMap[record[31]]
+			responsible := uMap[field(record, "Ответственный")]
+			created := uMap[field(record, "Кем создана сделка")]
+			source := sMap[field(record, "Источник")]
 
-			prod := pMap[record[69]]
-			manuf := mMap[record[70]]
-			step := stepsMap[record[15]]
+			prod := pMap[field(record, "Товар")]
+			manuf := mMap[field(record, "Производитель")]
+			step := stepsMap[field(record, "Этап сделки")]
 			if responsible != 0 {
 				lead.ResponsibleID = &responsible
 			}
@@ -87,7 +96,7 @@ func (is *ImportService) Push_Leads(path string, n int) error {
 				lead.StepID = &step
 			}
 			tags := []models.Tag{}
-			for _, tag := range strings.Split(record[9], ",") {
+			for _, tag := range strings.Split(field(record, "Теги"), ",") {
 				if _, exist := tagsMap[tag]; exist {
 					tags = append(tags, models.Tag{ID: tagsMap[tag]})
 				}
@@ -104,7 +113,7 @@ func (is *ImportService) Push_Leads(path string, n int) error {
 				}
 			}
 
-			for _, r := range record[10:15] {
+			for _, r := range record[leadFields["Примечание"]:leadFields["Примечание 5"]] {
 				if r != "" {
 					notice := &models.Task{ParentID: lead.ID, Description: strings.Trim(r, ""), ResponsibleID: &responsible, CreatedID: &responsible}
 					if err = is.DB.Create(notice).Error; err != nil {
@@ -133,20 +142,20 @@ func recordToLead(record []string) *models.Lead {
 	if len(record) == 0 {
 		return nil
 	}
-	if len(record) != 76 {
-		log.Println("Wrong record schema for leads? len(record) = ", len(record))
-		log.Println(record)
-		return nil
-	}
+	// if len(record) != 76 {
+	// 	log.Println("Wrong record schema for leads? len(record) = ", len(record))
+	// 	log.Println(record)
+	// 	return nil
+	// }
 	lead := &models.Lead{}
-	id, err := strconv.ParseUint(record[0], 10, 64)
+	id, err := strconv.ParseUint(field(record, "ID"), 10, 64)
 	if err != nil || id == 0 {
 		log.Println("ID parse error: " + err.Error())
 		return nil
 	}
 	lead.ID = id
-	lead.Name = record[1]
-	budget, err := strconv.ParseUint(record[2], 10, 32)
+	lead.Name = field(record, "ID")
+	budget, err := strconv.ParseUint(field(record, "Название сделки"), 10, 32)
 	if err == nil {
 		lead.Budget = uint32(budget)
 	}
@@ -159,14 +168,14 @@ func recordToLead(record []string) *models.Lead {
 	lead.CreatedID = nil
 
 	const timeForm = "02.01.2006 15:04:05"
-	if t, err := time.Parse(timeForm, record[4]); err == nil {
+	if t, err := time.Parse(timeForm, field(record, "Дата создания сделки")); err == nil {
 		lead.CreatedAt = t
 	}
 
-	if t, err := time.Parse(timeForm, record[6]); err == nil {
+	if t, err := time.Parse(timeForm, field(record, "Дата редактирования")); err == nil {
 		lead.UpdatedAt = t
 	}
-	if t, err := time.Parse(timeForm, record[8]); err == nil {
+	if t, err := time.Parse(timeForm, field(record, "Дата закрытия")); err == nil {
 		lead.ClosedAt = &t
 	}
 	// lead.ClosedAt, _ = time.Parse(timeForm, record[8])
@@ -194,12 +203,12 @@ func recordToLead(record []string) *models.Lead {
 	lead.ProductID = nil
 	lead.ManufacturerID = nil
 
-	lead.Analytics.CID = record[71]
-	lead.Analytics.UID = record[72]
-	lead.Analytics.TID = record[73]
+	lead.Analytics.CID = field(record, "cid")
+	lead.Analytics.UID = field(record, "uid")
+	lead.Analytics.TID = field(record, "tid")
 	// // implements real source record[74]
 	// contact.SourceID = nil
-	lead.Analytics.Domain = record[75]
+	lead.Analytics.Domain = field(record, "domain")
 
 	// log.Printf("all ok: %+v", lead)
 	return lead
