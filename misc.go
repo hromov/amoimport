@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/hromov/jevelina/auth"
 	"github.com/hromov/jevelina/cdb/models"
 	"gorm.io/gorm/clause"
 )
@@ -24,22 +25,9 @@ func (amo *AmoService) Push_Misc(path string, n int) error {
 	misc := map[string]int{}
 	leadFields = make(map[string]int)
 
-	role := &models.Role{Role: "Admin"}
-	if err := amo.DB.Create(&role).Error; err != nil {
-		if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-			log.Printf("Can't create admin role error: %s", err.Error())
-		}
-	}
-
-	role = &models.Role{Role: "User"}
-	if err := amo.DB.Create(&role).Error; err != nil {
-		if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-			log.Printf("Can't create user role error: %s", err.Error())
-		}
-	}
-	//probably we run it for the second time
-	if role.ID == 0 {
-		role.ID = 2
+	role, err := auth.GetBaseRole()
+	if err != nil {
+		return "Can't get base role from jevelina.auth error: " + err.Error()
 	}
 
 	for i := 0; i < n; i++ {
