@@ -31,16 +31,15 @@ func (amo *AmoService) Push_Contacts(path string, n int) error {
 	defer f.Close()
 	r := csv.NewReader(f)
 
-	csvFile, err := os.Create(broken_contacts)
+	brokenFile, err := os.Create(broken_contacts)
 	if err != nil {
 		log.Fatalf("failed creating file: %s", err)
 	}
-	defer csvFile.Close()
-	csvwriter := csv.NewWriter(csvFile)
+	defer brokenFile.Close()
+	brokenWriter := csv.NewWriter(brokenFile)
 
 	for i := 0; i < n; i++ {
 		record, err := r.Read()
-		// Stop at EOF.
 		if err == io.EOF {
 			break
 		}
@@ -50,97 +49,55 @@ func (amo *AmoService) Push_Contacts(path string, n int) error {
 		}
 
 		if i == 0 {
-			for index, value := range record {
-				contactFields[value] = index
-			}
+			recordToContactFileds(record)
 			continue
 		}
-		// Display record.
-		// ... Display record length.
-		// ... Display all individual elements of the slice.
 
-		// fmt.Println(record)
-		// fmt.Println(len(record))
-		// for value := range record {
-		// 	fmt.Printf(" %d = %v\n", value, record[value])
-		// }
-
-		if contact := recordToContact(record); contact == nil {
-			_ = csvwriter.Write(record)
+		if contact := amo.recordToContact(record); contact != nil {
+			amo.pushContact(record, contact)
 		} else {
-			responsible := amo.users[contactField(record, "Ответственный")]
-			created := amo.users[contactField(record, "Кем создан контакт")]
-			source := amo.sources[contactField(record, "Источник")]
-			if responsible != 0 {
-				contact.ResponsibleID = &responsible
-			}
-			if created != 0 {
-				contact.CreatedID = &created
-			}
-			if source != 0 {
-				contact.SourceID = &source
-			}
-			tags := []models.Tag{}
-			for _, tag := range strings.Split(contactField(record, "Теги"), ",") {
-				if _, exist := amo.tags[tag]; exist {
-					tags = append(tags, models.Tag{ID: amo.tags[tag]})
-				}
-			}
-			if len(tags) != 0 {
-				contact.Tags = tags
-			}
-			// .Omit(clause.Associations)
-			if err := amo.DB.Create(contact).Error; err != nil {
-				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-					log.Printf("Can't create contact for record # = %d error: %s", i, err.Error())
-				} else {
-					log.Printf("Can't create contact. Respoonsible = %d, (%+v), created = %d (%+v), source = %d (%+v)", responsible, amo.users, created, amo.users, source, amo.sources)
-				}
-			}
-
-			for _, r := range record[contactFields["Примечание 1"]:contactFields["Примечание 5"]] {
-				if r != "" {
-					notice := &models.Task{ParentID: contact.ID, Description: strings.Trim(r, ""), ResponsibleID: &responsible, CreatedID: &responsible}
-					if err := amo.DB.Create(notice).Error; err != nil {
-						log.Println(err)
-					}
-				}
-			}
-			// } else {
-			// 	log.Printf("contacts for record # = %d created: %+v", i, c)
-			// }
-			//notices 1-5, fullname, contact responsible, records[21:30], records[30:44]
-			stringToHash := contactField(record, "Полное имя контакта") + contactField(record, "Ответственный") + strings.Join(record[contactFields["Рабочий телефон"]:contactFields["Web"]], ",")
-			// log.Println(str)
-			hashed := getHash(stringToHash)
-			if _, exist := amo.contacts[hashed]; exist {
-				// log.Println("WTF!!!!!!! contact exist with hash = ", hashed)
-				log.Println(contact)
-			} else {
-				amo.contacts[hashed] = contact.ID
-			}
-
+			brokenWriter.Write(record)
 		}
-		csvwriter.Flush()
+		brokenWriter.Flush()
 	}
 	return nil
-
-	// csvReader := csv.NewReader(f)
-	// records, err := csvReader.ReadAll()
-	// if err != nil {
-	// 	return errors.New("Error parsing file: " + err.Error())
-	// }
-
-	// return records
 }
 
-func recordToContact(record []string) *models.Contact {
+func (amo *AmoService) pushContact(record []string, contact *models.Contact) {
+	if err := amo.DB.Create(contact).Error; err != nil {
+		log.Printf("Can't create contact with ID = %d error: %v", contact.ID, err)
+		return
+	}
+	amo.pushContactsTasks(record, contact)
+	amo.contacts[contactHash(record)] = contact.ID
+}
+
+func (amo *AmoService) pushContactsTasks(record []string, contact *models.Contact) {
+	responsible := amo.users[contactField(record, "Ответственный")]
+	for _, taskText := range record[contactFields["Примечание 1"]:contactFields["Примечание 5"]] {
+		if taskText != "" {
+			amo.DB.Create(textToTask(taskText, contact.ID, &responsible))
+		}
+	}
+}
+
+func recordToContactFileds(record []string) {
+	for index, value := range record {
+		contactFields[value] = index
+	}
+}
+
+func contactHash(record []string) string {
+	hashString := contactField(record, "Полное имя контакта") + contactField(record, "Ответственный") + strings.Join(record[contactFields["Рабочий телефон"]:contactFields["Web"]], ",")
+	return getHash(hashString)
+}
+
+func (amo *AmoService) recordToContact(record []string) *models.Contact {
 	if len(record) == 0 {
 		return nil
 	}
 	if len(record) != 43 {
-		// log.Println("Wrong record schema? len(record) = ", len(record))
-		// log.Println(record)
+		log.Println("Wrong record schema? len(record) = ", len(record))
 		return nil
 	}
 	contact := &models.Contact{}
@@ -162,9 +119,19 @@ func recordToContact(record []string) *models.Contact {
 	if !contact.IsPerson && contactField(record, "Название компании") != "" {
 		contact.Name = contactField(record, "Название компании")
 	}
-	//implement real user by get func
-	contact.ResponsibleID = nil
-	contact.CreatedID = nil
+
+	responsible := amo.users[contactField(record, "Ответственный")]
+	created := amo.users[contactField(record, "Кем создан контакт")]
+	source := amo.sources[contactField(record, "Источник")]
+	if responsible != 0 {
+		contact.ResponsibleID = &responsible
+	}
+	if created != 0 {
+		contact.CreatedID = &created
+	}
+	if source != 0 {
+		contact.SourceID = &source
+	}
 
 	const timeForm = "02.01.2006 15:04:05"
 	if t, err := time.Parse(timeForm, contactField(record, "Дата создания контакта")); err == nil {
@@ -181,9 +148,8 @@ func recordToContact(record []string) *models.Contact {
 	dc := regexp.MustCompile(`[^\d|,]`)
 	str := dc.ReplaceAllString(strings.Join(record[contactFields["Рабочий телефон"]:contactFields["Рабочий email"]], ","), "")
 	digits := regexp.MustCompile(`(\d){6,13}`)
-	// log.Println(str)
 	phones := digits.FindAllString(str, -1)
-	// log.Println(phones, len(phones))
+
 	switch len(phones) {
 	case 0:
 		log.Printf("no phones found for contact: %d\n", contact.ID)
@@ -208,12 +174,10 @@ func recordToContact(record []string) *models.Contact {
 		contact.SecondEmail = strings.Join(emails[1:], ",")
 	}
 	// Email end
+
 	contact.URL = contactField(record, "Web")
 	contact.Address = contactField(record, "Адрес")
 	contact.City = contactField(record, "Город")
-
-	// implements real source
-	contact.SourceID = nil
 
 	contact.Position = contactField(record, "Должность")
 
@@ -221,7 +185,17 @@ func recordToContact(record []string) *models.Contact {
 	contact.Analytics.UID = contactField(record, "uid")
 	contact.Analytics.TID = contactField(record, "tid")
 
-	// log.Printf("all ok: %+v", contact)
+	tags := []models.Tag{}
+	for _, tag := range strings.Split(contactField(record, "Теги"), ",") {
+		if _, exist := amo.tags[tag]; exist {
+			tags = append(tags, models.Tag{ID: amo.tags[tag]})
+		}
+	}
+
+	if len(tags) != 0 {
+		contact.Tags = tags
+	}
+
 	return contact
 }
 
@@ -268,27 +242,3 @@ func recordToContact(record []string) *models.Contact {
 //  40 = cid
 //  41 = uid
 //  42 = tid
-
-//  21 = Рабочий телефон
-//  22 = Рабочий прямой телефон
-//  23 = Мобильный телефон
-//  24 = Факс
-//  25 = Домашний телефон
-//  26 = Другой телефон
-//  27 = Рабочий email
-//  28 = Личный email
-//  29 = Другой email
-//  30 = Город
-//  31 = Источник
-//  32 = Должность
-//  33 = Товар
-//  34 = Skype
-//  35 = ICQ
-//  36 = Jabber
-//  37 = Google Talk
-//  38 = MSN
-//  39 = Другой IM
-//  40 = Пользовательское соглашение
-//  41 = cid
-//  42 = uid
-//  43 = tid

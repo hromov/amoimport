@@ -23,7 +23,7 @@ type AmoService struct {
 }
 
 func Import(db *gorm.DB, leads_path string, contacts_path string, n int) error {
-	err := os.Mkdir(broken_dir, 0755)
+	err := os.MkdirAll(broken_dir, 0755)
 	if err != nil {
 		return err
 	}

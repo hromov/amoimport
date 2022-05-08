@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/hromov/jevelina/cdb/models"
 )
 
 var mysqlErr *mysql.MySQLError
@@ -16,16 +17,11 @@ func getHash(s string) string {
 	return string(bs)
 }
 
-func (amo *AmoService) Get_Contact_ID(record []string) *uint64 {
-	//notices 1-5, fullname, contact responsible, records[21:30], records[30:44]
-	str := leadField(record, "Полное имя контакта") + leadField(record, "Ответственный за контакт") + strings.Join(record[leadFields["Рабочий телефон"]:leadFields["utm_source"]], ",")
-	// log.Println(str)
-	hashed := getHash(str)
-	if _, exist := amo.contacts[hashed]; !exist {
-		//TODO: put them in separate file and not into the base
-		// log.Println("WTF!!!!!!! can'f find contact for lead = ", str)
-		return nil
+func textToTask(taskText string, parent uint64, responsible *uint64) *models.Task {
+	return &models.Task{
+		ParentID:      parent,
+		Description:   strings.Trim(taskText, ""),
+		ResponsibleID: responsible,
+		CreatedID:     responsible,
 	}
-	r := amo.contacts[hashed]
-	return &r
 }
