@@ -68,17 +68,10 @@ func (amo *AmoService) pushContact(record []string, contact *models.Contact) {
 		log.Printf("Can't create contact with ID = %d error: %v", contact.ID, err)
 		return
 	}
-	amo.pushContactsTasks(record, contact)
+	taskFields := record[contactFields["Примечание 1"]:contactFields["Примечание 5"]]
+	amo.pushTasks(taskFields, contact.ID, contact.ResponsibleID)
+	//We don't have contact_leads table in csv, so will do it like this
 	amo.contacts[contactHash(record)] = contact.ID
-}
-
-func (amo *AmoService) pushContactsTasks(record []string, contact *models.Contact) {
-	responsible := amo.users[contactField(record, "Ответственный")]
-	for _, taskText := range record[contactFields["Примечание 1"]:contactFields["Примечание 5"]] {
-		if taskText != "" {
-			amo.DB.Create(textToTask(taskText, contact.ID, &responsible))
-		}
-	}
 }
 
 func recordToContactFileds(record []string) {
@@ -141,9 +134,6 @@ func (amo *AmoService) recordToContact(record []string) *models.Contact {
 		contact.UpdatedAt = t
 	}
 
-	//contact.tags = getTags
-	//contact.notices = getNotices record[13:18]
-
 	// Phones start
 	dc := regexp.MustCompile(`[^\d|,]`)
 	str := dc.ReplaceAllString(strings.Join(record[contactFields["Рабочий телефон"]:contactFields["Рабочий email"]], ","), "")
@@ -184,17 +174,6 @@ func (amo *AmoService) recordToContact(record []string) *models.Contact {
 	contact.Analytics.CID = contactField(record, "cid")
 	contact.Analytics.UID = contactField(record, "uid")
 	contact.Analytics.TID = contactField(record, "tid")
-
-	tags := []models.Tag{}
-	for _, tag := range strings.Split(contactField(record, "Теги"), ",") {
-		if _, exist := amo.tags[tag]; exist {
-			tags = append(tags, models.Tag{ID: amo.tags[tag]})
-		}
-	}
-
-	if len(tags) != 0 {
-		contact.Tags = tags
-	}
 
 	return contact
 }

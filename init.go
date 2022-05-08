@@ -20,6 +20,7 @@ type AmoService struct {
 	tags          map[string]uint8
 	//key = hash, val = id
 	contacts map[string]uint64
+	misc     map[string]bool
 }
 
 func Import(db *gorm.DB, leads_path string, contacts_path string, n int) error {
@@ -37,9 +38,14 @@ func Import(db *gorm.DB, leads_path string, contacts_path string, n int) error {
 		steps:         make(map[string]uint8),
 		tags:          make(map[string]uint8),
 		contacts:      make(map[string]uint64),
+		misc:          make(map[string]bool),
 	}
 
 	if err := amo.Push_Misc(leads_path, n); err != nil {
+		return err
+	}
+
+	if err := amo.LoadMiscsToMaps(); err != nil {
 		return err
 	}
 

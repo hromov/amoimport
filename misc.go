@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/hromov/jevelina/auth"
 	"github.com/hromov/jevelina/cdb/models"
@@ -22,7 +21,7 @@ func (amo *AmoService) Push_Misc(path string, n int) error {
 	defer f.Close()
 
 	r := csv.NewReader(f)
-	misc := map[string]int{}
+
 	leadFields = make(map[string]int)
 
 	role, err := auth.GetBaseRole()
@@ -42,81 +41,61 @@ func (amo *AmoService) Push_Misc(path string, n int) error {
 		}
 
 		if i == 0 {
-			for index, value := range record {
-				leadFields[value] = index
-			}
-			// log.Printf("%+v", leadFields)
+			recordToLeadFileds(record)
 			continue
 		}
-		// Display record.
-		// ... Display record length.
-		// ... Display all individual elements of the slice.
-
-		// fmt.Println(record)
-		// fmt.Println(len(record))
-		// for value := range record {
-		// 	fmt.Printf(" %d = %v\n", value, record[value])
-		// }
 		respName := leadField(record, "Ответственный")
-		if _, exist := misc[respName]; !exist && respName != "" {
-			misc[respName] = -1
-			email := fmt.Sprintf("email_%d@gmail.com", i)
-			//Hash also = email, because hashing just email could be dangerous
-			if err := amo.DB.Omit(clause.Associations).Create(&models.User{Name: respName, Email: email, Hash: email, RoleID: &role.ID}).Error; err != nil {
-				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-					log.Printf("Can't create user for record # = %d error: %s", i, err.Error())
-				}
-			}
-		}
+		amo.saveResponsible(respName, role.ID)
 
 		stepName := leadField(record, "Этап сделки")
-		if _, exist := misc[stepName]; !exist && stepName != "" {
-			misc[stepName] = -1
-			if err := amo.DB.Create(&models.Step{Name: stepName}).Error; err != nil {
-				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-					log.Printf("Can't create step for record # = %d error: %s", i, err.Error())
-				}
-			}
-		}
-		prodName := leadField(record, "Товар")
-		if _, exist := misc[prodName]; !exist && prodName != "" {
-			misc[prodName] = -1
-			if err := amo.DB.Create(&models.Product{Name: prodName}).Error; err != nil {
-				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-					log.Printf("Can't create product for record # = %d error: %s", i, err.Error())
-				}
-			}
-		}
-		manufName := leadField(record, "Производитель")
-		if _, exist := misc[manufName]; !exist && manufName != "" {
-			misc[manufName] = -1
-			if err := amo.DB.Create(&models.Manufacturer{Name: manufName}).Error; err != nil {
-				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-					log.Printf("Can't create manufacturer for record # = %d error: %s", i, err.Error())
-				}
-			}
-		}
-		sourceName := leadField(record, "Источник")
-		if _, exist := misc[sourceName]; !exist && sourceName != "" {
-			misc[sourceName] = -1
-			if err := amo.DB.Create(&models.Source{Name: sourceName}).Error; err != nil {
-				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-					log.Printf("Can't create source for record # = %d error: %s", i, err.Error())
-				}
-			}
-		}
-		for _, tag := range strings.Split(leadField(record, "Теги"), ",") {
-			if _, exist := misc[tag]; !exist && tag != "" {
-				misc[tag] = -1
-				if err := amo.DB.Create(&models.Tag{Name: tag}).Error; err != nil {
-					if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-						log.Printf("Can't create source for record # = %d error: %s", i, err.Error())
-					}
-				}
-			}
-		}
+		amo.saveMisc(&models.Step{Name: stepName}, stepName)
 
+		prodName := leadField(record, "Товар")
+		amo.saveMisc(&models.Product{Name: prodName}, prodName)
+
+		manufName := leadField(record, "Производитель")
+		amo.saveMisc(&models.Manufacturer{Name: manufName}, manufName)
+
+		sourceName := leadField(record, "Источник")
+		amo.saveMisc(&models.Source{Name: sourceName}, sourceName)
 	}
+
+	return nil
+}
+
+func (amo *AmoService) saveMisc(m interface{}, name string) {
+	if name == "" {
+		return
+	}
+
+	if _, exist := amo.misc[name]; !exist {
+		amo.misc[name] = true
+		errorCheck(amo.DB.Create(m).Error, name)
+	}
+}
+
+func (amo *AmoService) saveResponsible(name string, role uint8) {
+	if name == "" {
+		return
+	}
+
+	if _, exist := amo.misc[name]; !exist {
+		amo.misc[name] = true
+		email := fmt.Sprintf("email_%d@gmail.com", len(amo.misc))
+		//Hash also = email, because hashing just email could look false-safe
+		errorCheck(amo.DB.Omit(clause.Associations).Create(
+			&models.User{Name: name, Email: email, Hash: email, RoleID: &role},
+		).Error, "users")
+	}
+}
+
+func errorCheck(err error, name string) {
+	if err != nil && errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+		log.Printf("Can't create item with name %s error: %s", name, err.Error())
+	}
+}
+
+func (amo *AmoService) LoadMiscsToMaps() error {
 	var sources []models.Source
 	if err := amo.DB.Find(&sources).Error; err != nil {
 		return err
@@ -170,17 +149,6 @@ func (amo *AmoService) Push_Misc(path string, n int) error {
 	}
 	for _, item := range steps {
 		amo.steps[item.Name] = item.ID
-	}
-
-	var tags []models.Tag
-	if err := amo.DB.Find(&tags).Error; err != nil {
-		return err
-	}
-	if len(tags) == 0 {
-		log.Println("No tags were found")
-	}
-	for _, item := range tags {
-		amo.tags[item.Name] = item.ID
 	}
 
 	return nil

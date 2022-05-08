@@ -10,11 +10,12 @@ import (
 
 var mysqlErr *mysql.MySQLError
 
-func getHash(s string) string {
-	h := sha1.New()
-	h.Write([]byte(s))
-	bs := h.Sum(nil)
-	return string(bs)
+func (amo *AmoService) pushTasks(record []string, parent uint64, responsible *uint64) {
+	for _, taskText := range record {
+		if taskText != "" {
+			amo.DB.Create(textToTask(taskText, parent, responsible))
+		}
+	}
 }
 
 func textToTask(taskText string, parent uint64, responsible *uint64) *models.Task {
@@ -24,4 +25,11 @@ func textToTask(taskText string, parent uint64, responsible *uint64) *models.Tas
 		ResponsibleID: responsible,
 		CreatedID:     responsible,
 	}
+}
+
+func getHash(s string) string {
+	h := sha1.New()
+	h.Write([]byte(s))
+	bs := h.Sum(nil)
+	return string(bs)
 }

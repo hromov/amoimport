@@ -28,18 +28,17 @@ func (amo *AmoService) Push_Leads(path string, n int) error {
 
 	r := csv.NewReader(f)
 
-	csvFile, err := os.Create(broken_leads)
+	brokeLeads, err := os.Create(broken_leads)
 	if err != nil {
 		log.Fatalf("failed creating file: %s", err)
 	}
-	defer csvFile.Close()
-	csvwriter := csv.NewWriter(csvFile)
+	defer brokeLeads.Close()
+	brokenWriter := csv.NewWriter(brokeLeads)
 
 	leadFields = make(map[string]int)
 	for i := 0; i < n; i++ {
 
 		record, err := r.Read()
-		// Stop at EOF.
 		if err == io.EOF {
 			break
 		}
@@ -49,93 +48,35 @@ func (amo *AmoService) Push_Leads(path string, n int) error {
 		}
 
 		if i == 0 {
-			//in case we did something with misk let's init it one more time
-			for index, value := range record {
-				leadFields[value] = index
-			}
+			recordToLeadFileds(record)
 			continue
 		}
-		// Display record.
-		// ... Display record length.
-		// ... Display all individual elements of the slice.
-
-		// fmt.Println(record)
-		// fmt.Println(len(record))
-		// for value := range record {
-		// 	fmt.Printf(" %d = %v\n", value, record[value])
-		// }
 
 		if lead := amo.recordToLead(record); lead != nil {
-
-			responsible := amo.users[leadField(record, "Ответственный")]
-			created := amo.users[leadField(record, "Кем создана сделка")]
-			source := amo.sources[leadField(record, "Источник")]
-
-			prod := amo.products[leadField(record, "Товар")]
-			manuf := amo.manufacturers[leadField(record, "Производитель")]
-			step := amo.steps[leadField(record, "Этап сделки")]
-			if responsible != 0 {
-				lead.ResponsibleID = &responsible
-			}
-			if created != 0 {
-				lead.CreatedID = &created
-			}
-			if source != 0 {
-				lead.SourceID = &source
-			}
-			if prod != 0 {
-				lead.ProductID = &prod
-			}
-			if manuf != 0 {
-				lead.ManufacturerID = &manuf
-			}
-			if step != 0 {
-				lead.StepID = &step
-			}
-			tags := []models.Tag{}
-			for _, tag := range strings.Split(leadField(record, "Теги"), ",") {
-				if _, exist := amo.tags[tag]; exist {
-					tags = append(tags, models.Tag{ID: amo.tags[tag]})
-				}
-			}
-			if len(tags) != 0 {
-				lead.Tags = tags
-			}
-
-			if err := amo.DB.Create(lead).Error; err != nil {
-				if !errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-					log.Printf("Can't create lead for record # = %d error: %s", i, err.Error())
-				} else {
-					log.Println(err)
-				}
-			}
-
-			for _, r := range record[leadFields["Примечание"]:leadFields["Примечание 5"]] {
-				if r != "" {
-					notice := &models.Task{ParentID: lead.ID, Description: strings.Trim(r, ""), ResponsibleID: &responsible, CreatedID: &responsible}
-					if err = amo.DB.Create(notice).Error; err != nil {
-						log.Println(err)
-					}
-				}
-			}
-			// } else {
-			// 	log.Printf("lead for record # = %d created: %+v", i, c)
-			// }
+			amo.PushLead(record, lead)
 		} else {
-			_ = csvwriter.Write(record)
+			brokenWriter.Write(record)
 		}
 	}
 
-	csvwriter.Flush()
+	brokenWriter.Flush()
 	return nil
+}
 
-	// csvReader := csv.NewReader(f)
-	// records, err := csvReader.ReadAll()
-	// if err != nil {
-	// 	return errors.New("Error parsing file: " + err.Error())
-	// }
+func recordToLeadFileds(record []string) {
+	for index, value := range record {
+		leadFields[value] = index
+	}
+}
 
-	// return records
+func (amo *AmoService) PushLead(record []string, lead *models.Lead) {
+	if err := amo.DB.Create(lead).Error; err != nil {
+		log.Println(err)
+	} else {
+		taskFields := record[leadFields["Примечание"]:leadFields["Примечание 5"]]
+		amo.pushTasks(taskFields, lead.ID, lead.ResponsibleID)
+	}
+
 }
 
 func (amo *AmoService) recordToLead(record []string) *models.Lead {
@@ -144,7 +85,6 @@ func (amo *AmoService) recordToLead(record []string) *models.Lead {
 	}
 	if len(record) != 76 {
 		log.Println("Wrong record schema for leads? len(record) = ", len(record))
-		// log.Println(record)
 		return nil
 	}
 	lead := &models.Lead{}
@@ -159,20 +99,36 @@ func (amo *AmoService) recordToLead(record []string) *models.Lead {
 	if err == nil {
 		lead.Budget = uint32(budget)
 	}
-	// contactToHash := contactField(record, "Полное имя контакта") + contactField(record, "Ответственный") + strings.Join(record[contactFields["Рабочий телефон"]:contactFields["Web"]], ",")
-	// log.Panicln(contactToHash)
-	stringToHash := leadField(record, "Полное имя контакта") + leadField(record, "Ответственный за контакт") + strings.Join(record[leadFields["Рабочий телефон"]:leadFields["Город"]], ",")
-	if contactID, exist := amo.contacts[getHash(stringToHash)]; exist {
-		lead.ContactID = &contactID
-	} else {
-		// log.Printf("no contact found for lead: %+v", lead)
+	lead.ContactID = amo.contactIDByLeadRecord(record)
+	if lead.ContactID == nil {
 		return nil
 	}
 
-	//responsible and created from contacts goes here
-	//implement real user by get func
-	lead.ResponsibleID = nil
-	lead.CreatedID = nil
+	responsible := amo.users[leadField(record, "Ответственный")]
+	created := amo.users[leadField(record, "Кем создана сделка")]
+	source := amo.sources[leadField(record, "Источник")]
+
+	prod := amo.products[leadField(record, "Товар")]
+	manuf := amo.manufacturers[leadField(record, "Производитель")]
+	step := amo.steps[leadField(record, "Этап сделки")]
+	if responsible != 0 {
+		lead.ResponsibleID = &responsible
+	}
+	if created != 0 {
+		lead.CreatedID = &created
+	}
+	if source != 0 {
+		lead.SourceID = &source
+	}
+	if prod != 0 {
+		lead.ProductID = &prod
+	}
+	if manuf != 0 {
+		lead.ManufacturerID = &manuf
+	}
+	if step != 0 {
+		lead.StepID = &step
+	}
 
 	const timeForm = "02.01.2006 15:04:05"
 	if t, err := time.Parse(timeForm, leadField(record, "Дата создания сделки")); err == nil {
@@ -186,21 +142,20 @@ func (amo *AmoService) recordToLead(record []string) *models.Lead {
 		lead.ClosedAt = &t
 	}
 
-	//tags record[9]
-	//genereate from record[15]
-	lead.StepID = nil
-	lead.ProductID = nil
-	lead.ManufacturerID = nil
-
 	lead.Analytics.CID = leadField(record, "cid")
 	lead.Analytics.UID = leadField(record, "uid")
 	lead.Analytics.TID = leadField(record, "tid")
-	// // implements real source record[74]
-	// contact.SourceID = nil
 	lead.Analytics.Domain = leadField(record, "domain")
 
-	// log.Printf("all ok: %+v", lead)
 	return lead
+}
+
+func (amo *AmoService) contactIDByLeadRecord(record []string) *uint64 {
+	stringToHash := leadField(record, "Полное имя контакта") + leadField(record, "Ответственный за контакт") + strings.Join(record[leadFields["Рабочий телефон"]:leadFields["Город"]], ",")
+	if contactID, exist := amo.contacts[getHash(stringToHash)]; exist {
+		return &contactID
+	}
+	return nil
 }
 
 //  0 = ID
