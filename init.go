@@ -1,8 +1,14 @@
 package amoimport
 
 import (
+	"os"
+
 	"gorm.io/gorm"
 )
+
+const broken_dir = "broken"
+const broken_leads = broken_dir + "/broken_leads.csv"
+const broken_contacts = broken_dir + "/broken_contacts.csv"
 
 type AmoService struct {
 	DB            *gorm.DB
@@ -17,6 +23,10 @@ type AmoService struct {
 }
 
 func Import(db *gorm.DB, leads_path string, contacts_path string, n int) error {
+	err := os.Mkdir(broken_dir, 0755)
+	if err != nil {
+		return err
+	}
 
 	amo := &AmoService{
 		DB:            db,

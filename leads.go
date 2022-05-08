@@ -15,8 +15,6 @@ import (
 
 var leadFields map[string]int
 
-const broken_leads = "broken_leads.csv"
-
 func leadField(record []string, name string) string {
 	return record[leadFields[name]]
 }
