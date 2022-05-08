@@ -165,7 +165,7 @@ func (amo *AmoService) recordToLead(record []string) *models.Lead {
 	if contactID, exist := amo.contacts[getHash(stringToHash)]; exist {
 		lead.ContactID = &contactID
 	} else {
-		log.Printf("no contact found for lead: %+v", lead)
+		// log.Printf("no contact found for lead: %+v", lead)
 		return nil
 	}
 
