@@ -1,6 +1,7 @@
 package amoimport
 
 import (
+	"math"
 	"os"
 
 	"gorm.io/gorm"
@@ -23,7 +24,11 @@ type AmoService struct {
 	misc     map[string]bool
 }
 
+//Import to "db" from csv files. N - is the number of rows to import. 0 means no limit
 func Import(db *gorm.DB, leads_path string, contacts_path string, n int) error {
+	if n == 0 {
+		n = math.MaxInt64
+	}
 	err := os.MkdirAll(broken_dir, 0755)
 	if err != nil {
 		return err
