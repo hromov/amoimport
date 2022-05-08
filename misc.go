@@ -27,7 +27,7 @@ func (amo *AmoService) Push_Misc(path string, n int) error {
 
 	role, err := auth.GetBaseRole()
 	if err != nil {
-		return "Can't get base role from jevelina.auth error: " + err.Error()
+		return errors.New("Can't get base role from jevelina.auth error: " + err.Error())
 	}
 
 	for i := 0; i < n; i++ {
