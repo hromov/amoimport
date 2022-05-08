@@ -89,12 +89,6 @@ func (amo *AmoService) saveResponsible(name string, role uint8) {
 	}
 }
 
-func errorCheck(err error, name string) {
-	if err != nil && errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-		log.Printf("Can't create item with name %s error: %s", name, err.Error())
-	}
-}
-
 func (amo *AmoService) LoadMiscsToMaps() error {
 	var sources []models.Source
 	if err := amo.DB.Find(&sources).Error; err != nil {

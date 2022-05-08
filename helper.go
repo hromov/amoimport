@@ -2,6 +2,8 @@ package amoimport
 
 import (
 	"crypto/sha1"
+	"errors"
+	"log"
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
@@ -24,6 +26,12 @@ func textToTask(taskText string, parent uint64, responsible *uint64) *models.Tas
 		Description:   strings.Trim(taskText, ""),
 		ResponsibleID: responsible,
 		CreatedID:     responsible,
+	}
+}
+
+func errorCheck(err error, name string) {
+	if err != nil && errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+		log.Printf("Can't create item with name %s error: %s", name, err.Error())
 	}
 }
 
