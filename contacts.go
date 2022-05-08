@@ -65,7 +65,9 @@ func (amo *AmoService) Push_Contacts(path string, n int) error {
 		// 	fmt.Printf(" %d = %v\n", value, record[value])
 		// }
 
-		if contact := recordToContact(record); contact != nil {
+		if contact := recordToContact(record); contact == nil {
+			_ = csvwriter.Write(record)
+		} else {
 			responsible := amo.users[contactField(record, "Ответственный")]
 			created := amo.users[contactField(record, "Кем создан контакт")]
 			source := amo.sources[contactField(record, "Источник")]
@@ -117,8 +119,7 @@ func (amo *AmoService) Push_Contacts(path string, n int) error {
 			} else {
 				amo.contacts[hashed] = contact.ID
 			}
-		} else {
-			_ = csvwriter.Write(record)
+
 		}
 		csvwriter.Flush()
 	}

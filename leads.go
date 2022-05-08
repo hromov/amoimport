@@ -15,6 +15,8 @@ import (
 
 var leadFields map[string]int
 
+const broken_leads = "broken_leads.csv"
+
 func leadField(record []string, name string) string {
 	return record[leadFields[name]]
 }
@@ -28,7 +30,7 @@ func (amo *AmoService) Push_Leads(path string, n int) error {
 
 	r := csv.NewReader(f)
 
-	csvFile, err := os.Create("broken_leads.csv")
+	csvFile, err := os.Create(broken_leads)
 	if err != nil {
 		log.Fatalf("failed creating file: %s", err)
 	}

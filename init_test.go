@@ -1,7 +1,9 @@
 package amoimport
 
 import (
+	"encoding/csv"
 	"log"
+	"os"
 	"testing"
 
 	"github.com/hromov/jevelina/auth"
@@ -89,7 +91,7 @@ func TestImport(t *testing.T) {
 		},
 		{
 			name:          "tasks",
-			objectType:    models.Step{},
+			objectType:    models.Task{},
 			expectedLen:   11,
 			expectedError: nil,
 		},
@@ -110,7 +112,7 @@ func TestImport(t *testing.T) {
 			case models.Task:
 				resp, err := cdb.Misc().Tasks(filter)
 				assertError(t, test.expectedError, err)
-				assertLen(t, test.expectedLen, len(resp.Tasks))
+				assertLen(t, test.expectedLen, int(resp.Total))
 			case models.User:
 				users, err := cdb.Misc().Users()
 				assertError(t, test.expectedError, err)
@@ -134,6 +136,26 @@ func TestImport(t *testing.T) {
 			}
 		})
 	}
+	t.Run("broken_leads", func(t *testing.T) {
+		const broken_amount = 1
+		f, err := os.Open(broken_leads)
+		if err != nil {
+			t.Errorf("Can't open %s. Error: %s", broken_leads, err.Error())
+		}
+
+		// remember to close the file at the end of the program
+		defer f.Close()
+
+		// read csv values using csv.Reader
+		csvReader := csv.NewReader(f)
+		rows, err := csvReader.ReadAll()
+		if err != nil {
+			t.Errorf("Can't read %s. Error: %s", broken_leads, err)
+		}
+		if len(rows) != broken_amount {
+			t.Errorf("Expected to have %d broken leads, got: %d", broken_amount, len(rows))
+		}
+	})
 }
 
 func assertError(t *testing.T, expected, real error) {
