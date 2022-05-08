@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/go-sql-driver/mysql v1.6.0
-	github.com/hromov/jevelina v0.0.0-20220508163414-465a1f46074f
+	github.com/hromov/jevelina v0.0.0-20220508194717-92333891cd85
 	gorm.io/gorm v1.23.5
 )
 

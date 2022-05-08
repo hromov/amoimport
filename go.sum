@@ -184,6 +184,8 @@ github.com/hashicorp/golang-lru v0.5.0/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ
 github.com/hashicorp/golang-lru v0.5.1/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/hromov/jevelina v0.0.0-20220508163414-465a1f46074f h1:IJ3mMU7Nv+hjfHRguRrvVEKe66JGK93m56YYTui53Xo=
 github.com/hromov/jevelina v0.0.0-20220508163414-465a1f46074f/go.mod h1:816VLrhf7DCtu2jXlEFqxWQV1TB8fx3enzy3y/uU468=
+github.com/hromov/jevelina v0.0.0-20220508194717-92333891cd85 h1:OyovFBQYf7pSaHWEBMcP0sqVrHepfCZ/OP49gEHM8j0=
+github.com/hromov/jevelina v0.0.0-20220508194717-92333891cd85/go.mod h1:yja+1TnGJym3aPT9eAyzKmp2Lo/7mvzHzYRoeFFuKkM=
 github.com/hromov/muser v0.0.0-20220503203133-e1ecbba0bd3e h1:4YRSrHlNhOHeHp+OtlgV7tGsDyyHkjZ4REglH+tJBQU=
 github.com/hromov/muser v0.0.0-20220503203133-e1ecbba0bd3e/go.mod h1:qQW9YqADhcjAN9lipou+07vrkPdHpDWDr/cSLLzqEWA=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
