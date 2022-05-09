@@ -8,8 +8,8 @@ import (
 )
 
 const broken_dir = "broken"
-const broken_leads = broken_dir + "/broken_leads.csv"
-const broken_contacts = broken_dir + "/broken_contacts.csv"
+const Broken_leads = broken_dir + "/Broken_leads.csv"
+const Broken_contacts = broken_dir + "/Broken_contacts.csv"
 
 type AmoService struct {
 	DB            *gorm.DB

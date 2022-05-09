@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/hromov/jevelina/auth"
+	"github.com/hromov/jevelina/cdb"
 	"github.com/hromov/jevelina/cdb/models"
 	"gorm.io/gorm/clause"
 )
@@ -24,7 +24,7 @@ func (amo *AmoService) Push_Misc(path string, n int) error {
 
 	leadFields = make(map[string]int)
 
-	role, err := auth.GetBaseRole()
+	role, err := cdb.GetBaseRole()
 	if err != nil {
 		return errors.New("Can't get base role from jevelina.auth error: " + err.Error())
 	}

@@ -1,12 +1,11 @@
-package amoimport
+package main
 
 import (
 	"encoding/csv"
-	"log"
 	"os"
 	"testing"
 
-	"github.com/hromov/jevelina/auth"
+	"github.com/hromov/amoimport/amoimport"
 	"github.com/hromov/jevelina/cdb"
 	"github.com/hromov/jevelina/cdb/models"
 )
@@ -32,17 +31,9 @@ func TestImport(t *testing.T) {
 		t.Fatalf("Cant init data base error: %s", err.Error())
 	}
 
-	if _, err := auth.CreateInitRoles(db.DB); err != nil {
-		log.Fatalf("Can't create base roles error: %s", err.Error())
-	}
-
-	if _, err := auth.CreateInitUsers(db.DB); err != nil {
-		log.Fatalf("Can't create init users error: %s", err.Error())
-	}
-
 	const leads = "test_files/leads_test.csv"
 	const contacts = "test_files/contacts_test.csv"
-	if err := Import(db.DB, leads, contacts, 100); err != nil {
+	if err := amoimport.Import(db.DB, leads, contacts, 100); err != nil {
 		t.Errorf("Error while importing test data: %s", err.Error())
 	}
 
@@ -136,11 +127,11 @@ func TestImport(t *testing.T) {
 			}
 		})
 	}
-	t.Run("broken_leads", func(t *testing.T) {
+	t.Run("Broken_leads", func(t *testing.T) {
 		const broken_amount = 1
-		f, err := os.Open(broken_leads)
+		f, err := os.Open(amoimport.Broken_leads)
 		if err != nil {
-			t.Errorf("Can't open %s. Error: %s", broken_leads, err.Error())
+			t.Errorf("Can't open %s. Error: %s", amoimport.Broken_leads, err.Error())
 		}
 
 		// remember to close the file at the end of the program
@@ -150,7 +141,7 @@ func TestImport(t *testing.T) {
 		csvReader := csv.NewReader(f)
 		rows, err := csvReader.ReadAll()
 		if err != nil {
-			t.Errorf("Can't read %s. Error: %s", broken_leads, err)
+			t.Errorf("Can't read %s. Error: %s", amoimport.Broken_leads, err)
 		}
 		if len(rows) != broken_amount {
 			t.Errorf("Expected to have %d broken leads, got: %d", broken_amount, len(rows))

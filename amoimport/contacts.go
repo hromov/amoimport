@@ -31,7 +31,7 @@ func (amo *AmoService) Push_Contacts(path string, n int) error {
 	defer f.Close()
 	r := csv.NewReader(f)
 
-	brokenFile, err := os.Create(broken_contacts)
+	brokenFile, err := os.Create(Broken_contacts)
 	if err != nil {
 		log.Fatalf("failed creating file: %s", err)
 	}

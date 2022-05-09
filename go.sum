@@ -186,6 +186,8 @@ github.com/hromov/jevelina v0.0.0-20220508163414-465a1f46074f h1:IJ3mMU7Nv+hjfHR
 github.com/hromov/jevelina v0.0.0-20220508163414-465a1f46074f/go.mod h1:816VLrhf7DCtu2jXlEFqxWQV1TB8fx3enzy3y/uU468=
 github.com/hromov/jevelina v0.0.0-20220508194717-92333891cd85 h1:OyovFBQYf7pSaHWEBMcP0sqVrHepfCZ/OP49gEHM8j0=
 github.com/hromov/jevelina v0.0.0-20220508194717-92333891cd85/go.mod h1:yja+1TnGJym3aPT9eAyzKmp2Lo/7mvzHzYRoeFFuKkM=
+github.com/hromov/jevelina v0.0.0-20220509115808-7ebdf0503d0f h1:oqR1OeSRmnZuEnt0oWbkp+URnzpKqv3ouYN18XpDnlk=
+github.com/hromov/jevelina v0.0.0-20220509115808-7ebdf0503d0f/go.mod h1:EFg6YpASJ7zgKyzESace6JSWTedwwYKZAudFiEd6zeU=
 github.com/hromov/muser v0.0.0-20220503203133-e1ecbba0bd3e h1:4YRSrHlNhOHeHp+OtlgV7tGsDyyHkjZ4REglH+tJBQU=
 github.com/hromov/muser v0.0.0-20220503203133-e1ecbba0bd3e/go.mod h1:qQW9YqADhcjAN9lipou+07vrkPdHpDWDr/cSLLzqEWA=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=

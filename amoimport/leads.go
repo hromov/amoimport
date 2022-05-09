@@ -28,7 +28,7 @@ func (amo *AmoService) Push_Leads(path string, n int) error {
 
 	r := csv.NewReader(f)
 
-	brokeLeads, err := os.Create(broken_leads)
+	brokeLeads, err := os.Create(Broken_leads)
 	if err != nil {
 		log.Fatalf("failed creating file: %s", err)
 	}
